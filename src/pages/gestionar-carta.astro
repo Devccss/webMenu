@@ -1,0 +1,683 @@
+---
+import { getCategories, getMenuItems } from '../lib/googleSheets';
+import '../styles/global.css';
+
+// Fetch build-time data for initial hydration
+const initialCategories = await getCategories();
+const initialItems = await getMenuItems();
+
+// Environment variables exposed to client
+const spreadsheetId = import.meta.env.GOOGLE_SPREADSHEET_ID || '';
+const appsScriptUrl = import.meta.env.GOOGLE_APPS_SCRIPT_URL || '';
+---
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panel de Administración | Carta Digital</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚙️</text></svg>">
+</head>
+<body>
+  <div class="container">
+    <!-- Notification Banner -->
+    <div id="toast" class="notification"></div>
+
+    <!-- Login screen -->
+    <div id="login-container" class="admin-login">
+      <h2>Administración de Carta</h2>
+      <form id="login-form">
+        <div class="form-group">
+          <label for="admin-user">Usuario</label>
+          <input type="text" id="admin-user" required autocomplete="username" placeholder="admin" />
+        </div>
+        <div class="form-group">
+          <label for="admin-pass">Contraseña</label>
+          <input type="password" id="admin-pass" required autocomplete="current-password" placeholder="••••••••" />
+        </div>
+        <button type="submit" class="btn btn-full">Ingresar</button>
+      </form>
+    </div>
+
+    <!-- Admin Dashboard (Hidden by default) -->
+    <div id="dashboard-container" style="display: none;">
+      <div class="admin-header">
+        <div>
+          <h1 style="font-size: 1.75rem; margin-bottom: 0.25rem;">Panel de Control</h1>
+          <p class="subtitle" style="text-align: left;">Bistró & Co. • Gestión de Carta</p>
+        </div>
+        <div style="display: flex; gap: 0.75rem;">
+          <button id="btn-publish" class="btn">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            Publicar Cambios
+          </button>
+          <button id="btn-logout" class="btn btn-secondary">Salir</button>
+        </div>
+      </div>
+
+      <!-- Tabs Navigation -->
+      <div class="admin-tabs">
+        <button id="tab-items" class="admin-tab active">Platos</button>
+        <button id="tab-categories" class="admin-tab">Categorías</button>
+      </div>
+
+      <!-- PLATOS TAB PANEL -->
+      <div id="panel-items">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+          <h2 style="font-size: 1.25rem; font-weight: 600; text-transform: uppercase;">Lista de Platos</h2>
+          <button id="btn-add-item" class="btn">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Agregar Plato
+          </button>
+        </div>
+        <div id="admin-items-list" class="admin-items-list">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+
+      <!-- CATEGORIAS TAB PANEL -->
+      <div id="panel-categories" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+          <h2 style="font-size: 1.25rem; font-weight: 600; text-transform: uppercase;">Lista de Categorías</h2>
+          <button id="btn-add-category" class="btn">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Agregar Categoría
+          </button>
+        </div>
+        <div id="admin-categories-list" class="admin-items-list">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL PARA PLATOS -->
+  <div id="modal-item" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-item-title">Agregar Plato</h3>
+        <button class="modal-close" id="modal-item-close">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <form id="form-item">
+        <input type="hidden" id="item-form-id" />
+        <div class="form-group">
+          <label for="item-name">Nombre del Plato</label>
+          <input type="text" id="item-name" required placeholder="Ej: Pizza Margarita" />
+        </div>
+        <div class="form-group">
+          <label for="item-price">Precio ($)</label>
+          <input type="number" id="item-price" required min="0" step="0.01" placeholder="Ej: 1200" />
+        </div>
+        <div class="form-group">
+          <label for="item-category">Categoría</label>
+          <select id="item-category" required>
+            <!-- Dynamically populated -->
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="item-description">Descripción</label>
+          <textarea id="item-description" rows="3" placeholder="Ingredientes, alérgenos, etc."></textarea>
+        </div>
+        <div class="form-group">
+          <label for="item-image">URL de la Imagen</label>
+          <input type="url" id="item-image" placeholder="Ej: https://unsplash.com/foto.jpg" />
+        </div>
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="item-recommended" />
+            Recomendado del Chef
+          </label>
+        </div>
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="item-available" checked />
+            Disponible (con stock)
+          </label>
+        </div>
+        <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+          <button type="submit" class="btn" style="flex: 1;">Guardar</button>
+          <button type="button" id="btn-cancel-item" class="btn btn-secondary" style="flex: 1;">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL PARA CATEGORIAS -->
+  <div id="modal-category" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-category-title">Agregar Categoría</h3>
+        <button class="modal-close" id="modal-category-close">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <form id="form-category">
+        <input type="hidden" id="category-form-mode" value="add" />
+        <div class="form-group">
+          <label for="category-id">ID de Categoría (Código único minúsculas)</label>
+          <input type="text" id="category-id" required placeholder="Ej: pizzas" />
+        </div>
+        <div class="form-group">
+          <label for="category-name">Nombre de Categoría</label>
+          <input type="text" id="category-name" required placeholder="Ej: Pizzas A la Piedra" />
+        </div>
+        <div class="form-group">
+          <label for="category-icon">Emoji de Categoría</label>
+          <input type="text" id="category-icon" required placeholder="Ej: 🍕" maxlength="4" />
+        </div>
+        <div class="form-group">
+          <label for="category-order">Orden de visualización</label>
+          <input type="number" id="category-order" required min="1" placeholder="Ej: 1" />
+        </div>
+        <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+          <button type="submit" class="btn" style="flex: 1;">Guardar</button>
+          <button type="button" id="btn-cancel-category" class="btn btn-secondary" style="flex: 1;">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script is:inline define:vars={{ initialCategories, initialItems, spreadsheetId, appsScriptUrl }}>
+    // Configuration & State
+    let categories = [...initialCategories];
+    let items = [...initialItems];
+    
+    let isEditingItem = false;
+    let isEditingCategory = false;
+
+    // Credentials State
+    let adminToken = { user: '', pass: '' };
+
+    // DOM References - Containers
+    const loginContainer = document.getElementById('login-container');
+    const dashboardContainer = document.getElementById('dashboard-container');
+    const panelItems = document.getElementById('panel-items');
+    const panelCategories = document.getElementById('panel-categories');
+
+    // DOM References - Lists
+    const itemsListContainer = document.getElementById('admin-items-list');
+    const categoriesListContainer = document.getElementById('admin-categories-list');
+
+    // DOM References - Modals
+    const modalItem = document.getElementById('modal-item');
+    const modalCategory = document.getElementById('modal-category');
+
+    // DOM References - Forms
+    const loginForm = document.getElementById('login-form');
+    const formItem = document.getElementById('form-item');
+    const formCategory = document.getElementById('form-category');
+
+    // Toast element
+    const toastEl = document.getElementById('toast');
+
+    // Show Notification
+    function showToast(message, type = 'success') {
+      toastEl.textContent = message;
+      toastEl.className = `notification show ${type}`;
+      setTimeout(() => {
+        toastEl.className = `notification ${type}`;
+      }, 4000);
+    }
+
+    // Retrieve active session if exists
+    const session = sessionStorage.getItem('admin_session');
+    if (session) {
+      try {
+        adminToken = JSON.parse(session);
+        loginContainer.style.display = 'none';
+        dashboardContainer.style.display = 'block';
+        fetchLatestDataAndHydrate();
+      } catch(e) {
+        sessionStorage.removeItem('admin_session');
+      }
+    }
+
+    // Handle Login Form
+    loginForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const user = document.getElementById('admin-user').value.trim();
+      const pass = document.getElementById('admin-pass').value.trim();
+      
+      // Save credentials in session
+      adminToken = { user, pass };
+      sessionStorage.setItem('admin_session', JSON.stringify(adminToken));
+      
+      loginContainer.style.display = 'none';
+      dashboardContainer.style.display = 'block';
+      showToast('Sesión iniciada correctamente', 'success');
+      
+      fetchLatestDataAndHydrate();
+    });
+
+    // Handle Logout
+    document.getElementById('btn-logout').addEventListener('click', () => {
+      sessionStorage.removeItem('admin_session');
+      adminToken = { user: '', pass: '' };
+      loginContainer.style.display = 'block';
+      dashboardContainer.style.display = 'none';
+      showToast('Sesión cerrada', 'success');
+    });
+
+    // Fetch latest data from public Google Sheet to ensure no overwrites of newer changes
+    async function fetchLatestDataAndHydrate() {
+      if (!spreadsheetId) {
+        showToast('Utilizando base de datos precompilada (GOOGLE_SPREADSHEET_ID no configurado)', 'error');
+        renderItems();
+        renderCategories();
+        return;
+      }
+
+      showToast('Cargando últimos datos de Google Sheets...', 'success');
+
+      try {
+        // Standard Google Sheets CSV Export URLs
+        const menuUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv&sheet=Platos&t=${Date.now()}`;
+        const catUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv&sheet=Categorias&t=${Date.now()}`;
+        
+        // Fetch categories first
+        const catRes = await fetch(catUrl);
+        if (catRes.ok) {
+          const csvText = await catRes.text();
+          categories = parseCSV(csvText).map(row => ({
+            id: String(row.id || '').trim().toLowerCase(),
+            name: String(row.name || '').trim(),
+            icon: String(row.icon || '').trim(),
+            order: parseInt(row.order) || 99
+          })).sort((a, b) => a.order - b.order);
+        }
+
+        // Fetch items
+        const menuRes = await fetch(menuUrl);
+        if (menuRes.ok) {
+          const csvText = await menuRes.text();
+          items = parseCSV(csvText).map(row => ({
+            id: String(row.id || '').trim(),
+            name: String(row.name || '').trim(),
+            description: String(row.description || '').trim(),
+            price: parseFloat(row.price) || 0,
+            imageUrl: String(row.imageUrl || '').trim(),
+            categoryId: String(row.categoryId || '').trim().toLowerCase(),
+            isRecommended: String(row.isRecommended || '').trim().toLowerCase() === 'true',
+            isAvailable: String(row.isAvailable || '').trim().toLowerCase() !== 'false'
+          }));
+        }
+
+        showToast('Datos actualizados de Google Sheets cargados', 'success');
+      } catch (err) {
+        console.error('Error fetching fresh spreadsheet data:', err);
+        showToast('Error cargando Google Sheets directos. Usando datos estáticos.', 'error');
+      }
+
+      renderItems();
+      renderCategories();
+    }
+
+    // Helper to parse simple CSV from google exports
+    function parseCSV(text) {
+      const lines = text.split(/\r?\n/);
+      if (lines.length === 0) return [];
+      const headers = lines[0].split(',').map(h => h.replace(/^"(.*)"$/, '$1').trim());
+      const result = [];
+      
+      for (let i = 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+        
+        // Regex to split comma-separated values while respecting quotes
+        const matches = lines[i].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || lines[i].split(',');
+        const row = {};
+        headers.forEach((header, index) => {
+          let val = matches[index] || '';
+          val = val.replace(/^"(.*)"$/, '$1').trim();
+          row[header] = val;
+        });
+        result.push(row);
+      }
+      return result;
+    }
+
+    // Tabs navigation logic
+    const tabItems = document.getElementById('tab-items');
+    const tabCategories = document.getElementById('tab-categories');
+
+    tabItems.addEventListener('click', () => {
+      tabItems.classList.add('active');
+      tabCategories.classList.remove('active');
+      panelItems.style.display = 'block';
+      panelCategories.style.display = 'none';
+    });
+
+    tabCategories.addEventListener('click', () => {
+      tabCategories.classList.add('active');
+      tabItems.classList.remove('active');
+      panelCategories.style.display = 'block';
+      panelItems.style.display = 'none';
+    });
+
+    // Render Items Table
+    function renderItems() {
+      itemsListContainer.innerHTML = '';
+      
+      if (items.length === 0) {
+        itemsListContainer.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 2rem;">No hay platos creados aún.</div>';
+        return;
+      }
+
+      items.forEach(item => {
+        const cat = categories.find(c => c.id === item.categoryId);
+        const catName = cat ? cat.name : item.categoryId;
+        
+        const row = document.createElement('div');
+        row.className = 'admin-item-row';
+        row.innerHTML = `
+          <div class="admin-item-details">
+            <span class="admin-item-name">${item.name} ${item.isRecommended ? '⭐' : ''}</span>
+            <span class="admin-item-meta">${catName} • $${item.price.toLocaleString('es-AR')} • ${item.isAvailable ? '<span style="color: var(--success-color)">En Stock</span>' : '<span style="color: var(--danger-color)">Sin Stock</span>'}</span>
+          </div>
+          <div class="admin-item-actions">
+            <button class="btn btn-secondary btn-edit" data-id="${item.id}">Editar</button>
+            <button class="btn btn-danger btn-delete" data-id="${item.id}">Eliminar</button>
+          </div>
+        `;
+        itemsListContainer.appendChild(row);
+      });
+
+      // Bind button events
+      itemsListContainer.querySelectorAll('.btn-edit').forEach(btn => {
+        btn.addEventListener('click', () => openItemModal(btn.getAttribute('data-id')));
+      });
+
+      itemsListContainer.querySelectorAll('.btn-delete').forEach(btn => {
+        btn.addEventListener('click', () => deleteItem(btn.getAttribute('data-id')));
+      });
+    }
+
+    // Render Categories Table
+    function renderCategories() {
+      categoriesListContainer.innerHTML = '';
+      
+      if (categories.length === 0) {
+        categoriesListContainer.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 2rem;">No hay categorías creadas aún.</div>';
+        return;
+      }
+
+      categories.forEach(cat => {
+        const row = document.createElement('div');
+        row.className = 'admin-item-row';
+        row.innerHTML = `
+          <div class="admin-item-details">
+            <span class="admin-item-name">${cat.icon} ${cat.name}</span>
+            <span class="admin-item-meta">ID: ${cat.id} • Orden: ${cat.order}</span>
+          </div>
+          <div class="admin-item-actions">
+            <button class="btn btn-secondary btn-edit-cat" data-id="${cat.id}">Editar</button>
+            <button class="btn btn-danger btn-delete-cat" data-id="${cat.id}">Eliminar</button>
+          </div>
+        `;
+        categoriesListContainer.appendChild(row);
+      });
+
+      // Bind button events
+      categoriesListContainer.querySelectorAll('.btn-edit-cat').forEach(btn => {
+        btn.addEventListener('click', () => openCategoryModal(btn.getAttribute('data-id')));
+      });
+
+      categoriesListContainer.querySelectorAll('.btn-delete-cat').forEach(btn => {
+        btn.addEventListener('click', () => deleteCategory(btn.getAttribute('data-id')));
+      });
+
+      // Update select element inside item modal
+      const itemCategorySelect = document.getElementById('item-category');
+      itemCategorySelect.innerHTML = categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    }
+
+    // Modal Control: Platos
+    const btnAddItem = document.getElementById('btn-add-item');
+    const modalItemClose = document.getElementById('modal-item-close');
+    const btnCancelItem = document.getElementById('btn-cancel-item');
+
+    function openItemModal(id = null) {
+      if (categories.length === 0) {
+        showToast('Primero crea al menos una categoría para poder añadir un plato.', 'error');
+        return;
+      }
+
+      modalItem.style.display = 'flex';
+      
+      if (id) {
+        // Edit Mode
+        const item = items.find(i => i.id === id);
+        if (!item) return;
+        
+        isEditingItem = true;
+        document.getElementById('modal-item-title').textContent = 'Editar Plato';
+        document.getElementById('item-form-id').value = item.id;
+        document.getElementById('item-name').value = item.name;
+        document.getElementById('item-price').value = item.price;
+        document.getElementById('item-category').value = item.categoryId;
+        document.getElementById('item-description').value = item.description;
+        document.getElementById('item-image').value = item.imageUrl || '';
+        document.getElementById('item-recommended').checked = item.isRecommended;
+        document.getElementById('item-available').checked = item.isAvailable;
+      } else {
+        // Create Mode
+        isEditingItem = false;
+        document.getElementById('modal-item-title').textContent = 'Agregar Plato';
+        formItem.reset();
+        document.getElementById('item-form-id').value = '';
+        document.getElementById('item-available').checked = true;
+      }
+    }
+
+    function closeItemModal() {
+      modalItem.style.display = 'none';
+      formItem.reset();
+    }
+
+    btnAddItem.addEventListener('click', () => openItemModal());
+    modalItemClose.addEventListener('click', closeItemModal);
+    btnCancelItem.addEventListener('click', closeItemModal);
+
+    // Save/Submit Plato Form
+    formItem.addEventListener('submit', (e) => {
+      e.preventDefault();
+      
+      const id = document.getElementById('item-form-id').value || 'item-' + Date.now();
+      const name = document.getElementById('item-name').value.trim();
+      const price = parseFloat(document.getElementById('item-price').value) || 0;
+      const categoryId = document.getElementById('item-category').value;
+      const description = document.getElementById('item-description').value.trim();
+      const imageUrl = document.getElementById('item-image').value.trim();
+      const isRecommended = document.getElementById('item-recommended').checked;
+      const isAvailable = document.getElementById('item-available').checked;
+
+      const itemData = { id, name, price, categoryId, description, imageUrl, isRecommended, isAvailable };
+
+      if (isEditingItem) {
+        items = items.map(i => i.id === id ? itemData : i);
+        showToast('Plato modificado (pendiente de publicación)', 'success');
+      } else {
+        items.push(itemData);
+        showToast('Plato añadido (pendiente de publicación)', 'success');
+      }
+
+      closeItemModal();
+      renderItems();
+    });
+
+    // Delete Plato
+    function deleteItem(id) {
+      if (confirm('¿Estás seguro de que quieres eliminar este plato?')) {
+        items = items.filter(i => i.id !== id);
+        renderItems();
+        showToast('Plato eliminado (pendiente de publicación)', 'success');
+      }
+    }
+
+    // Modal Control: Categorías
+    const btnAddCategory = document.getElementById('btn-add-category');
+    const modalCategoryClose = document.getElementById('modal-category-close');
+    const btnCancelCategory = document.getElementById('btn-cancel-category');
+
+    function openCategoryModal(id = null) {
+      modalCategory.style.display = 'flex';
+      
+      if (id) {
+        // Edit Mode
+        const cat = categories.find(c => c.id === id);
+        if (!cat) return;
+        
+        isEditingCategory = true;
+        document.getElementById('modal-category-title').textContent = 'Editar Categoría';
+        document.getElementById('category-form-mode').value = 'edit';
+        document.getElementById('category-id').value = cat.id;
+        document.getElementById('category-id').readOnly = true; // Cannot edit unique ID key
+        document.getElementById('category-name').value = cat.name;
+        document.getElementById('category-icon').value = cat.icon;
+        document.getElementById('category-order').value = cat.order;
+      } else {
+        // Create Mode
+        isEditingCategory = false;
+        document.getElementById('modal-category-title').textContent = 'Agregar Categoría';
+        document.getElementById('category-form-mode').value = 'add';
+        formCategory.reset();
+        document.getElementById('category-id').readOnly = false;
+      }
+    }
+
+    function closeCategoryModal() {
+      modalCategory.style.display = 'none';
+      formCategory.reset();
+    }
+
+    btnAddCategory.addEventListener('click', () => openCategoryModal());
+    modalCategoryClose.addEventListener('click', closeCategoryModal);
+    btnCancelCategory.addEventListener('click', closeCategoryModal);
+
+    // Save/Submit Categoría Form
+    formCategory.addEventListener('submit', (e) => {
+      e.preventDefault();
+      
+      const id = document.getElementById('category-id').value.trim().toLowerCase();
+      const name = document.getElementById('category-name').value.trim();
+      const icon = document.getElementById('category-icon').value.trim();
+      const order = parseInt(document.getElementById('category-order').value) || 99;
+
+      const catData = { id, name, icon, order };
+      const mode = document.getElementById('category-form-mode').value;
+
+      if (mode === 'edit') {
+        categories = categories.map(c => c.id === id ? catData : c).sort((a, b) => a.order - b.order);
+        showToast('Categoría modificada (pendiente de publicación)', 'success');
+      } else {
+        // Check duplication
+        if (categories.some(c => c.id === id)) {
+          showToast('El ID de categoría ya existe. Elige uno diferente.', 'error');
+          return;
+        }
+        categories.push(catData);
+        categories.sort((a, b) => a.order - b.order);
+        showToast('Categoría añadida (pendiente de publicación)', 'success');
+      }
+
+      closeCategoryModal();
+      renderCategories();
+    });
+
+    // Delete Categoría
+    function deleteCategory(id) {
+      // Check if categories have items
+      const hasAssociatedItems = items.some(item => item.categoryId === id);
+      if (hasAssociatedItems) {
+        showToast('No puedes eliminar la categoría porque contiene platos. Reasigna los platos primero.', 'error');
+        return;
+      }
+
+      if (confirm('¿Estás seguro de que quieres eliminar esta categoría?')) {
+        categories = categories.filter(c => c.id !== id);
+        renderCategories();
+        showToast('Categoría eliminada (pendiente de publicación)', 'success');
+      }
+    }
+
+    // Publish Changes and Trigger Rebuild
+    const btnPublish = document.getElementById('btn-publish');
+    
+    btnPublish.addEventListener('click', async () => {
+      if (!appsScriptUrl) {
+        showToast('Error: PUBLIC_GOOGLE_APPS_SCRIPT_URL no está configurada.', 'error');
+        return;
+      }
+
+      if (confirm('¿Estás seguro de que deseas guardar los cambios en Google Sheets y reconstruir la web?')) {
+        btnPublish.disabled = true;
+        btnPublish.textContent = 'Guardando datos...';
+        showToast('Iniciando guardado de datos en Google Sheets...', 'success');
+
+        try {
+          const payload = {
+            username: adminToken.user,
+            password: adminToken.pass,
+            categories: categories,
+            items: items
+          };
+
+          // Send POST request to Google Apps Script Web App
+          const response = await fetch(appsScriptUrl, {
+            method: 'POST',
+            mode: 'cors',
+            headers: {
+              'Content-Type': 'text/plain;charset=utf-8' // Standard Apps Script CORS requirement
+            },
+            body: JSON.stringify(payload)
+          });
+
+          const result = await response.json();
+
+          if (result.success) {
+            showToast('Datos guardados. Rebuild de la web disparado en GitHub.', 'success');
+            
+            // Rebuild countdown/progress
+            let count = 120; // 2 minutes typical GitHub Actions compilation
+            btnPublish.textContent = `Actualizando (${count}s)`;
+            
+            const timer = setInterval(() => {
+              count--;
+              if (count <= 0) {
+                clearInterval(timer);
+                btnPublish.disabled = false;
+                btnPublish.innerHTML = `
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                  Publicar Cambios
+                `;
+                showToast('¡Despliegue finalizado! Recarga la carta pública para ver los cambios.', 'success');
+              } else {
+                btnPublish.textContent = `Actualizando (${count}s)`;
+              }
+            }, 1000);
+            
+          } else {
+            btnPublish.disabled = false;
+            btnPublish.innerHTML = `
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+              Publicar Cambios
+            `;
+            showToast(`Error al guardar: ${result.message}`, 'error');
+          }
+        } catch (error) {
+          console.error('Error saving data to Apps Script:', error);
+          btnPublish.disabled = false;
+          btnPublish.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            Publicar Cambios
+          `;
+          showToast('Error de red al conectar con Google Apps Script. Comprueba la conexión.', 'error');
+        }
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,333 @@
+---
+import { getCategories, getMenuItems } from '../lib/googleSheets';
+import '../styles/global.css';
+
+// Fetch data at build time
+const categories = await getCategories();
+const menuItems = await getMenuItems();
+
+// Filter recommended items that are available
+const recommendedItems = menuItems.filter(item => item.isRecommended && item.isAvailable);
+
+// Group items by category (excluding recommended if necessary, but here we group all available/unavailable)
+const categoriesWithItems = categories.map(category => {
+  const items = menuItems.filter(item => item.categoryId === category.id);
+  return { ...category, items };
+}).filter(cat => cat.items.length > 0); // Only keep categories that have items
+---
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nuestra Carta | Menú Digital</title>
+  <meta name="description" content="Explora nuestro menú interactivo. Ingredientes frescos, platos seleccionados y la mejor calidad directamente en tu mesa." />
+  
+  <!-- Favicon placeholder or simple emoji -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍽️</text></svg>">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <div style="display: flex; justify-content: flex-end; margin-bottom: 1rem;">
+        <button id="theme-toggle" class="btn btn-secondary" aria-label="Cambiar tema" style="padding: 0.5rem; border-radius: 50%; width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center;">
+          <!-- Sun Icon (Default shown in dark mode) -->
+          <svg id="sun-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-sun"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+          <!-- Moon Icon (Default shown in light mode) -->
+          <svg id="moon-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-moon" style="display: none;"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        </button>
+      </div>
+      <h1 id="restaurant-name">Bistró & Co.</h1>
+      <p class="subtitle">Sabores Auténticos • Carta Digital</p>
+    </header>
+
+    <!-- Search and Filters Section -->
+    <section class="search-filter-container" aria-label="Búsqueda y filtros">
+      <!-- Search Input -->
+      <div class="search-box">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input type="text" id="menu-search" placeholder="Buscar por plato o ingrediente..." autocomplete="off" />
+      </div>
+
+      <!-- Categories Filter Slider -->
+      <div class="categories-wrapper" role="tablist" aria-label="Categorías de platos">
+        <button class="category-btn active" role="tab" aria-selected="true" data-category="all" id="cat-all">
+          ✨ Todos
+        </button>
+        {categories.map(category => (
+          <button class="category-btn" role="tab" aria-selected="false" data-category={category.id} id={`cat-${category.id}`}>
+            {category.icon} {category.name}
+          </button>
+        ))}
+      </div>
+    </section>
+
+    <!-- Recommended Section (Visible by default) -->
+    {recommendedItems.length > 0 && (
+      <section class="recommended-section" id="recommended-wrapper">
+        <h2 class="recommended-title">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent-color);"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+          Recomendados del Chef
+        </h2>
+        <div class="recommended-grid">
+          {recommendedItems.map(item => (
+            <div class="recommended-card" data-item-id={item.id} role="button" aria-haspopup="true">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+                <h3 style="font-size: 1rem; font-weight: 600; line-height: 1.2;">{item.name}</h3>
+                <span style="font-weight: 700; color: var(--accent-color);">${item.price.toLocaleString('es-AR')}</span>
+              </div>
+              <p style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                {item.description}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+    )}
+
+    <!-- Menu List Grouped by Categories -->
+    <main id="menu-container">
+      {categoriesWithItems.map(category => (
+        <div class="menu-group" data-category-group={category.id}>
+          <h2 class="menu-group-title">{category.name}</h2>
+          <div class="menu-list">
+            {category.items.map(item => (
+              <div 
+                class={`menu-item ${!item.isAvailable ? 'unavailable' : ''}`}
+                data-item-name={item.name.toLowerCase()}
+                data-item-desc={item.description.toLowerCase()}
+                data-item-category={category.id}
+                data-item-id={item.id}
+              >
+                <!-- Item Header (Always Visible) -->
+                <div class="menu-item-header" role="button" aria-expanded="false">
+                  <div class="menu-item-info">
+                    <div class="menu-item-title-row">
+                      <h3 class="menu-item-title">{item.name}</h3>
+                      {item.isRecommended && item.isAvailable && <span class="badge badge-recommended">Recomendado</span>}
+                      {!item.isAvailable && <span class="badge badge-unavailable">Sin Stock</span>}
+                    </div>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <span class="menu-item-price">${item.price.toLocaleString('es-AR')}</span>
+                    <svg class="arrow-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                  </div>
+                </div>
+
+                <!-- Expandable Item Body (Accordion) -->
+                <div class="menu-item-body">
+                  <div class="menu-item-content">
+                    <div class="menu-item-detail">
+                      <div class="menu-item-description">
+                        <p>{item.description || "Sin descripción disponible."}</p>
+                      </div>
+                      {item.imageUrl && (
+                        <img 
+                          src={item.imageUrl} 
+                          alt={item.name} 
+                          class="menu-item-image" 
+                          loading="lazy"
+                          onerror="this.style.display='none'"
+                        />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      <!-- Empty State -->
+      <div id="no-results" style="display: none; text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin: 0 auto 1rem; opacity: 0.5;"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path><path d="M8 11h6"></path></svg>
+        <p style="font-weight: 500;">No encontramos platos que coincidan con tu búsqueda</p>
+        <p style="font-size: 0.85rem; margin-top: 0.25rem;">Intenta con otros ingredientes o categorías.</p>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer style="margin-top: 5rem; padding-top: 2rem; border-top: 1px solid var(--border-color); text-align: center; color: var(--text-muted); font-size: 0.85rem;">
+      <p>© {new Date().getFullYear()} Bistró & Co. • Todos los derechos reservados</p>
+      <p style="margin-top: 0.5rem; font-size: 0.75rem;">Diseño minimalista premium</p>
+    </footer>
+  </div>
+
+  <!-- Client-side Interactive Logic -->
+  <script>
+    // Theme toggling logic
+    const themeToggleBtn = document.getElementById('theme-toggle');
+    const sunIcon = document.getElementById('sun-icon');
+    const moonIcon = document.getElementById('moon-icon');
+
+    // Retrieve active theme from localStorage or preferred system setting
+    const savedTheme = localStorage.getItem('theme');
+    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const initialDark = savedTheme === 'dark' || (!savedTheme && systemPrefersDark);
+
+    if (initialDark) {
+      document.documentElement.classList.add('dark');
+      document.body.style.setProperty('color-scheme', 'dark');
+      sunIcon.style.display = 'inline-block';
+      moonIcon.style.display = 'none';
+    } else {
+      document.documentElement.classList.remove('dark');
+      document.body.style.setProperty('color-scheme', 'light');
+      sunIcon.style.display = 'none';
+      moonIcon.style.display = 'inline-block';
+    }
+
+    themeToggleBtn.addEventListener('click', () => {
+      const isDark = document.documentElement.classList.toggle('dark');
+      localStorage.setItem('theme', isDark ? 'dark' : 'light');
+      document.body.style.setProperty('color-scheme', isDark ? 'dark' : 'light');
+      
+      if (isDark) {
+        sunIcon.style.display = 'inline-block';
+        moonIcon.style.display = 'none';
+      } else {
+        sunIcon.style.display = 'none';
+        moonIcon.style.display = 'inline-block';
+      }
+    });
+
+    // Accordion Toggle
+    const menuItems = document.querySelectorAll('.menu-item');
+    
+    menuItems.forEach(item => {
+      const header = item.querySelector('.menu-item-header');
+      header.addEventListener('click', (e) => {
+        // Prevent click if clicking direct sub-elements with custom behavior (if any)
+        const wasExpanded = item.classList.contains('expanded');
+        
+        // Close other expanded items first (optional, makes it cleaner)
+        menuItems.forEach(otherItem => {
+          if (otherItem !== item && otherItem.classList.contains('expanded')) {
+            otherItem.classList.remove('expanded');
+            otherItem.querySelector('.menu-item-header').setAttribute('aria-expanded', 'false');
+          }
+        });
+
+        // Toggle current item
+        item.classList.toggle('expanded', !wasExpanded);
+        header.setAttribute('aria-expanded', !wasExpanded ? 'true' : 'false');
+      });
+    });
+
+    // Handle clicks on recommended cards (expand the corresponding menu item in the main list)
+    const recommendedCards = document.querySelectorAll('.recommended-card');
+    recommendedCards.forEach(card => {
+      card.addEventListener('click', () => {
+        const itemId = card.getAttribute('data-item-id');
+        const targetItem = document.querySelector(`.menu-item[data-item-id="${itemId}"]`);
+        
+        if (targetItem) {
+          // Scroll target item into view smoothly
+          targetItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          
+          // Expand target item
+          setTimeout(() => {
+            // Close other expanded items first
+            menuItems.forEach(otherItem => {
+              if (otherItem !== targetItem && otherItem.classList.contains('expanded')) {
+                otherItem.classList.remove('expanded');
+                otherItem.querySelector('.menu-item-header').setAttribute('aria-expanded', 'false');
+              }
+            });
+            
+            targetItem.classList.add('expanded');
+            targetItem.querySelector('.menu-item-header').setAttribute('aria-expanded', 'true');
+          }, 350);
+        }
+      });
+    });
+
+    // Real-time Search and Category Filter Logic
+    const searchInput = document.getElementById('menu-search');
+    const categoryButtons = document.querySelectorAll('.category-btn');
+    const recommendedSection = document.getElementById('recommended-wrapper');
+    const noResults = document.getElementById('no-results');
+    const menuGroups = document.querySelectorAll('.menu-group');
+
+    let currentCategory = 'all';
+    let searchQuery = '';
+
+    function filterMenu() {
+      let totalVisibleItems = 0;
+      const isSearchingOrFiltering = searchQuery.length > 0 || currentCategory !== 'all';
+
+      // Hide recommended section if active search or category filters are applied
+      if (recommendedSection) {
+        recommendedSection.style.display = isSearchingOrFiltering ? 'none' : 'block';
+      }
+
+      menuGroups.forEach(group => {
+        const groupCategory = group.getAttribute('data-category-group');
+        const items = group.querySelectorAll('.menu-item');
+        let visibleItemsInGroup = 0;
+
+        items.forEach(item => {
+          const itemName = item.getAttribute('data-item-name');
+          const itemDesc = item.getAttribute('data-item-desc');
+          const itemCategory = item.getAttribute('data-item-category');
+
+          const matchesCategory = currentCategory === 'all' || itemCategory === currentCategory;
+          const matchesSearch = searchQuery === '' || 
+                                itemName.includes(searchQuery) || 
+                                itemDesc.includes(searchQuery);
+
+          if (matchesCategory && matchesSearch) {
+            item.style.display = 'block';
+            visibleItemsInGroup++;
+            totalVisibleItems++;
+          } else {
+            item.style.display = 'none';
+            // If the item is hidden, also collapse it
+            item.classList.remove('expanded');
+            item.querySelector('.menu-item-header').setAttribute('aria-expanded', 'false');
+          }
+        });
+
+        // Hide or show the entire category group
+        if (visibleItemsInGroup > 0) {
+          group.style.display = 'block';
+        } else {
+          group.style.display = 'none';
+        }
+      });
+
+      // Show/Hide "No Results" state
+      noResults.style.display = totalVisibleItems === 0 ? 'block' : 'none';
+    }
+
+    // Input search listener
+    searchInput.addEventListener('input', (e) => {
+      searchQuery = e.target.value.toLowerCase().trim();
+      filterMenu();
+    });
+
+    // Category button click listener
+    categoryButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        // Toggle active buttons state
+        categoryButtons.forEach(b => {
+          b.classList.remove('active');
+          b.setAttribute('aria-selected', 'false');
+        });
+        
+        btn.classList.add('active');
+        btn.setAttribute('aria-selected', 'true');
+        
+        currentCategory = btn.getAttribute('data-category');
+        filterMenu();
+
+        // Scroll category button smoothly into view horizontally (if slider is scrolled)
+        btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      });
+    });
+  </script>
+</body>
+</html>

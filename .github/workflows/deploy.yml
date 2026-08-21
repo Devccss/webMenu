@@ -1,0 +1,87 @@
+name: Deploy Website to GitHub Pages
+
+on:
+  # Trigger on push to main branch
+  push:
+    branches:
+      - main
+  # Trigger on custom repository dispatch event sent from Google Apps Script
+  repository_dispatch:
+    types:
+      - deploy_menu
+  # Allow manual triggering from GitHub UI
+  workflow_dispatch:
+
+# Set permissions required for deploying to GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment, skipping runs in-progress (but NOT queued runs for deploy safety)
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build Website
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          run_install: false
+
+      - name: Get pnpm Store Directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm Cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install Dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Build Astro Static Site
+        run: pnpm run build
+        env:
+          GOOGLE_SPREADSHEET_ID: ${{ secrets.GOOGLE_SPREADSHEET_ID }}
+          # If they have a custom domain on GitHub Pages, set this secret to 'true' 
+          # so Astro compiles with a base path of '/' instead of '/repo-name'
+          CUSTOM_DOMAIN: ${{ secrets.CUSTOM_DOMAIN }}
+
+      - name: Upload Build Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
