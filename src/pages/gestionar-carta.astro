@@ -1,14 +1,16 @@
 ---
-import { getCategories, getMenuItems } from '../lib/googleSheets';
+import { getBranchMenuData } from '../lib/googleSheets';
+import { getBranchConfig, LOCATIONS_CONFIG } from '../lib/branches';
 import '../styles/global.css';
 
-// Fetch build-time data for initial hydration
-const initialCategories = await getCategories();
-const initialItems = await getMenuItems();
+// Obtener sucursal desde los parámetros de URL (?local=centro)
+const localParam = Astro.url.searchParams.get('local') || 'principal';
+const currentBranch = getBranchConfig(localParam);
 
-// Environment variables exposed to client
-const spreadsheetId = import.meta.env.GOOGLE_SPREADSHEET_ID || '';
-const appsScriptUrl = import.meta.env.GOOGLE_APPS_SCRIPT_URL || '';
+// Cargar datos iniciales
+const { categories: initialCategories, items: initialItems } = await getBranchMenuData(currentBranch);
+
+const availableBranches = Object.values(LOCATIONS_CONFIG);
 ---
 
 <!DOCTYPE html>
@@ -16,7 +18,7 @@ const appsScriptUrl = import.meta.env.GOOGLE_APPS_SCRIPT_URL || '';
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Panel de Administración | Carta Digital</title>
+  <title>Gestión de Carta - {currentBranch.name}</title>
   <meta name="robots" content="noindex, nofollow" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚙️</text></svg>">
 </head>
@@ -28,6 +30,20 @@ const appsScriptUrl = import.meta.env.GOOGLE_APPS_SCRIPT_URL || '';
     <!-- Login screen -->
     <div id="login-container" class="admin-login">
       <h2>Administración de Carta</h2>
+      <p style="text-align: center; color: var(--accent-color); font-weight: 600; margin-top: -0.5rem; margin-bottom: 1.5rem;">
+        📍 {currentBranch.name}
+      </p>
+
+      <!-- Selector rápido de sucursal en login -->
+      <div style="margin-bottom: 1.5rem; text-align: center;">
+        <label for="login-branch-select" style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">Cambiar de Sucursal:</label>
+        <select id="login-branch-select" style="background: var(--card-bg); color: var(--text-color); border: 1px solid var(--border-color); padding: 0.5rem 1rem; border-radius: var(--radius-sm); font-size: 0.9rem; cursor: pointer; width: 100%;">
+          {availableBranches.map(b => (
+            <option value={b.id} selected={b.id === currentBranch.id}>{b.name}</option>
+          ))}
+        </select>
+      </div>
+
       <form id="login-form">
         <div class="form-group">
           <label for="admin-user">Usuario</label>
@@ -37,24 +53,51 @@ const appsScriptUrl = import.meta.env.GOOGLE_APPS_SCRIPT_URL || '';
           <label for="admin-pass">Contraseña</label>
           <input type="password" id="admin-pass" required autocomplete="current-password" placeholder="••••••••" />
         </div>
-        <button type="submit" class="btn btn-full">Ingresar</button>
+        <button type="submit" class="btn btn-full">Ingresar a {currentBranch.name}</button>
       </form>
     </div>
 
     <!-- Admin Dashboard (Hidden by default) -->
     <div id="dashboard-container" style="display: none;">
-      <div class="admin-header">
+      <div class="admin-header" style="flex-wrap: wrap; gap: 1rem;">
         <div>
           <h1 style="font-size: 1.75rem; margin-bottom: 0.25rem;">Panel de Control</h1>
-          <p class="subtitle" style="text-align: left;">Bistró & Co. • Gestión de Carta</p>
+          <p class="subtitle" style="text-align: left; color: var(--accent-color); font-weight: 600;">
+            📍 {currentBranch.name} • Gestión de Carta REST API
+          </p>
         </div>
-        <div style="display: flex; gap: 0.75rem;">
+
+        <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+          <!-- Selector de Sucursal en el Dashboard -->
+          <select id="dashboard-branch-select" style="background: var(--card-bg); color: var(--text-color); border: 1px solid var(--border-color); padding: 0.5rem; border-radius: var(--radius-sm); font-size: 0.85rem; cursor: pointer;">
+            {availableBranches.map(b => (
+              <option value={b.id} selected={b.id === currentBranch.id}>{b.name}</option>
+            ))}
+          </select>
+
           <button id="btn-publish" class="btn">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-            Publicar Cambios
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+            Guardar Cambios Al Instante
           </button>
           <button id="btn-logout" class="btn btn-secondary">Salir</button>
         </div>
+      </div>
+
+      <!-- Configuración URL Apps Script -->
+      <div style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1.5rem;">
+        <label for="custom-apps-script-url" style="font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 0.5rem;">
+          🔗 URL del Web App de Apps Script (Libro de {currentBranch.name}):
+        </label>
+        <input 
+          type="url" 
+          id="custom-apps-script-url" 
+          placeholder="https://script.google.com/macros/s/.../exec"
+          style="width: 100%; background: var(--bg-color); color: var(--text-color); border: 1px solid var(--border-color); padding: 0.5rem; border-radius: var(--radius-sm); font-size: 0.85rem;"
+          value={currentBranch.appsScriptUrl}
+        />
+        <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem;">
+          Pega aquí la URL de la aplicación web que generaste al implementar Google Apps Script en la hoja de esta sucursal.
+        </p>
       </div>
 
       <!-- Tabs Navigation -->
@@ -73,7 +116,7 @@ const appsScriptUrl = import.meta.env.GOOGLE_APPS_SCRIPT_URL || '';
           </button>
         </div>
         <div id="admin-items-list" class="admin-items-list">
-          <!-- Dynamically populated -->
+          <!-- Populated dynamically -->
         </div>
       </div>
 
@@ -87,7 +130,7 @@ const appsScriptUrl = import.meta.env.GOOGLE_APPS_SCRIPT_URL || '';
           </button>
         </div>
         <div id="admin-categories-list" class="admin-items-list">
-          <!-- Dynamically populated -->
+          <!-- Populated dynamically -->
         </div>
       </div>
     </div>
@@ -115,7 +158,7 @@ const appsScriptUrl = import.meta.env.GOOGLE_APPS_SCRIPT_URL || '';
         <div class="form-group">
           <label for="item-category">Categoría</label>
           <select id="item-category" required>
-            <!-- Dynamically populated -->
+            <!-- Populated dynamically -->
           </select>
         </div>
         <div class="form-group">
@@ -124,7 +167,7 @@ const appsScriptUrl = import.meta.env.GOOGLE_APPS_SCRIPT_URL || '';
         </div>
         <div class="form-group">
           <label for="item-image">URL de la Imagen</label>
-          <input type="url" id="item-image" placeholder="Ej: https://unsplash.com/foto.jpg" />
+          <input type="url" id="item-image" placeholder="Ej: https://images.unsplash.com/foto.jpg" />
         </div>
         <div class="form-group">
           <label class="checkbox-label">
@@ -181,165 +224,120 @@ const appsScriptUrl = import.meta.env.GOOGLE_APPS_SCRIPT_URL || '';
     </div>
   </div>
 
-  <script is:inline define:vars={{ initialCategories, initialItems, spreadsheetId, appsScriptUrl }}>
-    // Configuration & State
+  <script is:inline define:vars={{ initialCategories, initialItems, currentBranch }}>
+    // State
     let categories = [...initialCategories];
     let items = [...initialItems];
-    
     let isEditingItem = false;
     let isEditingCategory = false;
-
-    // Credentials State
     let adminToken = { user: '', pass: '' };
 
-    // DOM References - Containers
+    // DOM Elements
     const loginContainer = document.getElementById('login-container');
     const dashboardContainer = document.getElementById('dashboard-container');
     const panelItems = document.getElementById('panel-items');
     const panelCategories = document.getElementById('panel-categories');
-
-    // DOM References - Lists
     const itemsListContainer = document.getElementById('admin-items-list');
     const categoriesListContainer = document.getElementById('admin-categories-list');
-
-    // DOM References - Modals
     const modalItem = document.getElementById('modal-item');
     const modalCategory = document.getElementById('modal-category');
-
-    // DOM References - Forms
     const loginForm = document.getElementById('login-form');
     const formItem = document.getElementById('form-item');
     const formCategory = document.getElementById('form-category');
-
-    // Toast element
     const toastEl = document.getElementById('toast');
+    const urlInput = document.getElementById('custom-apps-script-url');
 
-    // Show Notification
+    // Branch Selectors Handler
+    const handleBranchChange = (selectEl) => {
+      if (selectEl) {
+        selectEl.addEventListener('change', (e) => {
+          const newLocal = e.target.value;
+          const currentUrl = new URL(window.location.href);
+          currentUrl.searchParams.set('local', newLocal);
+          window.location.href = currentUrl.toString();
+        });
+      }
+    };
+    handleBranchChange(document.getElementById('login-branch-select'));
+    handleBranchChange(document.getElementById('dashboard-branch-select'));
+
     function showToast(message, type = 'success') {
       toastEl.textContent = message;
       toastEl.className = `notification show ${type}`;
-      setTimeout(() => {
-        toastEl.className = `notification ${type}`;
-      }, 4000);
+      setTimeout(() => { toastEl.className = `notification ${type}`; }, 4000);
     }
 
-    // Retrieve active session if exists
-    const session = sessionStorage.getItem('admin_session');
+    // Check active session
+    const sessionKey = `admin_session_${currentBranch.id}`;
+    const session = sessionStorage.getItem(sessionKey);
     if (session) {
       try {
         adminToken = JSON.parse(session);
         loginContainer.style.display = 'none';
         dashboardContainer.style.display = 'block';
-        fetchLatestDataAndHydrate();
+        fetchBranchDataViaApi();
       } catch(e) {
-        sessionStorage.removeItem('admin_session');
+        sessionStorage.removeItem(sessionKey);
       }
     }
 
-    // Handle Login Form
+    // Login Form
     loginForm.addEventListener('submit', (e) => {
       e.preventDefault();
       const user = document.getElementById('admin-user').value.trim();
       const pass = document.getElementById('admin-pass').value.trim();
       
-      // Save credentials in session
       adminToken = { user, pass };
-      sessionStorage.setItem('admin_session', JSON.stringify(adminToken));
+      sessionStorage.setItem(sessionKey, JSON.stringify(adminToken));
       
       loginContainer.style.display = 'none';
       dashboardContainer.style.display = 'block';
-      showToast('Sesión iniciada correctamente', 'success');
+      showToast(`Sesión iniciada en ${currentBranch.name}`, 'success');
       
-      fetchLatestDataAndHydrate();
+      fetchBranchDataViaApi();
     });
 
-    // Handle Logout
+    // Logout
     document.getElementById('btn-logout').addEventListener('click', () => {
-      sessionStorage.removeItem('admin_session');
+      sessionStorage.removeItem(sessionKey);
       adminToken = { user: '', pass: '' };
       loginContainer.style.display = 'block';
       dashboardContainer.style.display = 'none';
       showToast('Sesión cerrada', 'success');
     });
 
-    // Fetch latest data from public Google Sheet to ensure no overwrites of newer changes
-    async function fetchLatestDataAndHydrate() {
-      if (!spreadsheetId) {
-        showToast('Utilizando base de datos precompilada (GOOGLE_SPREADSHEET_ID no configurado)', 'error');
+    // Fetch Latest Data via Apps Script REST API
+    async function fetchBranchDataViaApi() {
+      const targetUrl = urlInput.value.trim() || currentBranch.appsScriptUrl;
+      if (!targetUrl) {
+        showToast('Utilizando datos locales precompilados. Configura la URL de Apps Script arriba.', 'error');
         renderItems();
         renderCategories();
         return;
       }
 
-      showToast('Cargando últimos datos de Google Sheets...', 'success');
+      showToast(`Cargando datos REST de ${currentBranch.name}...`, 'success');
 
       try {
-        // Standard Google Sheets CSV Export URLs
-        const menuUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv&sheet=Platos&t=${Date.now()}`;
-        const catUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv&sheet=Categorias&t=${Date.now()}`;
-        
-        // Fetch categories first
-        const catRes = await fetch(catUrl);
-        if (catRes.ok) {
-          const csvText = await catRes.text();
-          categories = parseCSV(csvText).map(row => ({
-            id: String(row.id || '').trim().toLowerCase(),
-            name: String(row.name || '').trim(),
-            icon: String(row.icon || '').trim(),
-            order: parseInt(row.order) || 99
-          })).sort((a, b) => a.order - b.order);
+        const response = await fetch(targetUrl);
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data.success) {
+            if (Array.isArray(data.categories) && data.categories.length > 0) categories = data.categories;
+            if (Array.isArray(data.items) && data.items.length > 0) items = data.items;
+            showToast('Datos más recientes cargados desde Apps Script REST API', 'success');
+          }
         }
-
-        // Fetch items
-        const menuRes = await fetch(menuUrl);
-        if (menuRes.ok) {
-          const csvText = await menuRes.text();
-          items = parseCSV(csvText).map(row => ({
-            id: String(row.id || '').trim(),
-            name: String(row.name || '').trim(),
-            description: String(row.description || '').trim(),
-            price: parseFloat(row.price) || 0,
-            imageUrl: String(row.imageUrl || '').trim(),
-            categoryId: String(row.categoryId || '').trim().toLowerCase(),
-            isRecommended: String(row.isRecommended || '').trim().toLowerCase() === 'true',
-            isAvailable: String(row.isAvailable || '').trim().toLowerCase() !== 'false'
-          }));
-        }
-
-        showToast('Datos actualizados de Google Sheets cargados', 'success');
       } catch (err) {
-        console.error('Error fetching fresh spreadsheet data:', err);
-        showToast('Error cargando Google Sheets directos. Usando datos estáticos.', 'error');
+        console.error('Error al conectar con la REST API de Apps Script:', err);
+        showToast('No se pudo conectar a Apps Script REST API. Usando datos precargados.', 'error');
       }
 
       renderItems();
       renderCategories();
     }
 
-    // Helper to parse simple CSV from google exports
-    function parseCSV(text) {
-      const lines = text.split(/\r?\n/);
-      if (lines.length === 0) return [];
-      const headers = lines[0].split(',').map(h => h.replace(/^"(.*)"$/, '$1').trim());
-      const result = [];
-      
-      for (let i = 1; i < lines.length; i++) {
-        if (!lines[i].trim()) continue;
-        
-        // Regex to split comma-separated values while respecting quotes
-        const matches = lines[i].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || lines[i].split(',');
-        const row = {};
-        headers.forEach((header, index) => {
-          let val = matches[index] || '';
-          val = val.replace(/^"(.*)"$/, '$1').trim();
-          row[header] = val;
-        });
-        result.push(row);
-      }
-      return result;
-    }
-
-    // Tabs navigation logic
+    // Tab Navigation
     const tabItems = document.getElementById('tab-items');
     const tabCategories = document.getElementById('tab-categories');
 
@@ -357,12 +355,11 @@ const appsScriptUrl = import.meta.env.GOOGLE_APPS_SCRIPT_URL || '';
       panelItems.style.display = 'none';
     });
 
-    // Render Items Table
+    // Render Items
     function renderItems() {
       itemsListContainer.innerHTML = '';
-      
       if (items.length === 0) {
-        itemsListContainer.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 2rem;">No hay platos creados aún.</div>';
+        itemsListContainer.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 2rem;">No hay platos creados aún en esta sucursal.</div>';
         return;
       }
 
@@ -375,7 +372,7 @@ const appsScriptUrl = import.meta.env.GOOGLE_APPS_SCRIPT_URL || '';
         row.innerHTML = `
           <div class="admin-item-details">
             <span class="admin-item-name">${item.name} ${item.isRecommended ? '⭐' : ''}</span>
-            <span class="admin-item-meta">${catName} • $${item.price.toLocaleString('es-AR')} • ${item.isAvailable ? '<span style="color: var(--success-color)">En Stock</span>' : '<span style="color: var(--danger-color)">Sin Stock</span>'}</span>
+            <span class="admin-item-meta">${catName} • $${Number(item.price).toLocaleString('es-AR')} • ${item.isAvailable ? '<span style="color: var(--success-color)">En Stock</span>' : '<span style="color: var(--danger-color)">Sin Stock</span>'}</span>
           </div>
           <div class="admin-item-actions">
             <button class="btn btn-secondary btn-edit" data-id="${item.id}">Editar</button>
@@ -385,20 +382,17 @@ const appsScriptUrl = import.meta.env.GOOGLE_APPS_SCRIPT_URL || '';
         itemsListContainer.appendChild(row);
       });
 
-      // Bind button events
       itemsListContainer.querySelectorAll('.btn-edit').forEach(btn => {
         btn.addEventListener('click', () => openItemModal(btn.getAttribute('data-id')));
       });
-
       itemsListContainer.querySelectorAll('.btn-delete').forEach(btn => {
         btn.addEventListener('click', () => deleteItem(btn.getAttribute('data-id')));
       });
     }
 
-    // Render Categories Table
+    // Render Categories
     function renderCategories() {
       categoriesListContainer.innerHTML = '';
-      
       if (categories.length === 0) {
         categoriesListContainer.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 2rem;">No hay categorías creadas aún.</div>';
         return;
@@ -420,38 +414,31 @@ const appsScriptUrl = import.meta.env.GOOGLE_APPS_SCRIPT_URL || '';
         categoriesListContainer.appendChild(row);
       });
 
-      // Bind button events
       categoriesListContainer.querySelectorAll('.btn-edit-cat').forEach(btn => {
         btn.addEventListener('click', () => openCategoryModal(btn.getAttribute('data-id')));
       });
-
       categoriesListContainer.querySelectorAll('.btn-delete-cat').forEach(btn => {
         btn.addEventListener('click', () => deleteCategory(btn.getAttribute('data-id')));
       });
 
-      // Update select element inside item modal
       const itemCategorySelect = document.getElementById('item-category');
       itemCategorySelect.innerHTML = categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
     }
 
-    // Modal Control: Platos
+    // Item Modals
     const btnAddItem = document.getElementById('btn-add-item');
     const modalItemClose = document.getElementById('modal-item-close');
     const btnCancelItem = document.getElementById('btn-cancel-item');
 
     function openItemModal(id = null) {
       if (categories.length === 0) {
-        showToast('Primero crea al menos una categoría para poder añadir un plato.', 'error');
+        showToast('Crea al menos una categoría primero.', 'error');
         return;
       }
-
       modalItem.style.display = 'flex';
-      
       if (id) {
-        // Edit Mode
         const item = items.find(i => i.id === id);
         if (!item) return;
-        
         isEditingItem = true;
         document.getElementById('modal-item-title').textContent = 'Editar Plato';
         document.getElementById('item-form-id').value = item.id;
@@ -463,7 +450,6 @@ const appsScriptUrl = import.meta.env.GOOGLE_APPS_SCRIPT_URL || '';
         document.getElementById('item-recommended').checked = item.isRecommended;
         document.getElementById('item-available').checked = item.isAvailable;
       } else {
-        // Create Mode
         isEditingItem = false;
         document.getElementById('modal-item-title').textContent = 'Agregar Plato';
         formItem.reset();
@@ -471,20 +457,13 @@ const appsScriptUrl = import.meta.env.GOOGLE_APPS_SCRIPT_URL || '';
         document.getElementById('item-available').checked = true;
       }
     }
-
-    function closeItemModal() {
-      modalItem.style.display = 'none';
-      formItem.reset();
-    }
-
+    function closeItemModal() { modalItem.style.display = 'none'; formItem.reset(); }
     btnAddItem.addEventListener('click', () => openItemModal());
     modalItemClose.addEventListener('click', closeItemModal);
     btnCancelItem.addEventListener('click', closeItemModal);
 
-    // Save/Submit Plato Form
     formItem.addEventListener('submit', (e) => {
       e.preventDefault();
-      
       const id = document.getElementById('item-form-id').value || 'item-' + Date.now();
       const name = document.getElementById('item-name').value.trim();
       const price = parseFloat(document.getElementById('item-price').value) || 0;
@@ -498,48 +477,42 @@ const appsScriptUrl = import.meta.env.GOOGLE_APPS_SCRIPT_URL || '';
 
       if (isEditingItem) {
         items = items.map(i => i.id === id ? itemData : i);
-        showToast('Plato modificado (pendiente de publicación)', 'success');
+        showToast('Plato modificado (clic en Guardar Cambios para aplicar)', 'success');
       } else {
         items.push(itemData);
-        showToast('Plato añadido (pendiente de publicación)', 'success');
+        showToast('Plato añadido (clic en Guardar Cambios para aplicar)', 'success');
       }
-
       closeItemModal();
       renderItems();
     });
 
-    // Delete Plato
     function deleteItem(id) {
-      if (confirm('¿Estás seguro de que quieres eliminar este plato?')) {
+      if (confirm('¿Eliminar este plato?')) {
         items = items.filter(i => i.id !== id);
         renderItems();
-        showToast('Plato eliminado (pendiente de publicación)', 'success');
+        showToast('Plato eliminado (clic en Guardar Cambios para aplicar)', 'success');
       }
     }
 
-    // Modal Control: Categorías
+    // Category Modals
     const btnAddCategory = document.getElementById('btn-add-category');
     const modalCategoryClose = document.getElementById('modal-category-close');
     const btnCancelCategory = document.getElementById('btn-cancel-category');
 
     function openCategoryModal(id = null) {
       modalCategory.style.display = 'flex';
-      
       if (id) {
-        // Edit Mode
         const cat = categories.find(c => c.id === id);
         if (!cat) return;
-        
         isEditingCategory = true;
         document.getElementById('modal-category-title').textContent = 'Editar Categoría';
         document.getElementById('category-form-mode').value = 'edit';
         document.getElementById('category-id').value = cat.id;
-        document.getElementById('category-id').readOnly = true; // Cannot edit unique ID key
+        document.getElementById('category-id').readOnly = true;
         document.getElementById('category-name').value = cat.name;
         document.getElementById('category-icon').value = cat.icon;
         document.getElementById('category-order').value = cat.order;
       } else {
-        // Create Mode
         isEditingCategory = false;
         document.getElementById('modal-category-title').textContent = 'Agregar Categoría';
         document.getElementById('category-form-mode').value = 'add';
@@ -547,20 +520,13 @@ const appsScriptUrl = import.meta.env.GOOGLE_APPS_SCRIPT_URL || '';
         document.getElementById('category-id').readOnly = false;
       }
     }
-
-    function closeCategoryModal() {
-      modalCategory.style.display = 'none';
-      formCategory.reset();
-    }
-
+    function closeCategoryModal() { modalCategory.style.display = 'none'; formCategory.reset(); }
     btnAddCategory.addEventListener('click', () => openCategoryModal());
     modalCategoryClose.addEventListener('click', closeCategoryModal);
     btnCancelCategory.addEventListener('click', closeCategoryModal);
 
-    // Save/Submit Categoría Form
     formCategory.addEventListener('submit', (e) => {
       e.preventDefault();
-      
       const id = document.getElementById('category-id').value.trim().toLowerCase();
       const name = document.getElementById('category-name').value.trim();
       const icon = document.getElementById('category-icon').value.trim();
@@ -571,51 +537,46 @@ const appsScriptUrl = import.meta.env.GOOGLE_APPS_SCRIPT_URL || '';
 
       if (mode === 'edit') {
         categories = categories.map(c => c.id === id ? catData : c).sort((a, b) => a.order - b.order);
-        showToast('Categoría modificada (pendiente de publicación)', 'success');
+        showToast('Categoría modificada (clic en Guardar Cambios para aplicar)', 'success');
       } else {
-        // Check duplication
         if (categories.some(c => c.id === id)) {
-          showToast('El ID de categoría ya existe. Elige uno diferente.', 'error');
+          showToast('El ID de categoría ya existe.', 'error');
           return;
         }
         categories.push(catData);
         categories.sort((a, b) => a.order - b.order);
-        showToast('Categoría añadida (pendiente de publicación)', 'success');
+        showToast('Categoría añadida (clic en Guardar Cambios para aplicar)', 'success');
       }
-
       closeCategoryModal();
       renderCategories();
     });
 
-    // Delete Categoría
     function deleteCategory(id) {
-      // Check if categories have items
-      const hasAssociatedItems = items.some(item => item.categoryId === id);
-      if (hasAssociatedItems) {
-        showToast('No puedes eliminar la categoría porque contiene platos. Reasigna los platos primero.', 'error');
+      if (items.some(item => item.categoryId === id)) {
+        showToast('No puedes eliminar la categoría porque contiene platos.', 'error');
         return;
       }
-
-      if (confirm('¿Estás seguro de que quieres eliminar esta categoría?')) {
+      if (confirm('¿Eliminar esta categoría?')) {
         categories = categories.filter(c => c.id !== id);
         renderCategories();
-        showToast('Categoría eliminada (pendiente de publicación)', 'success');
+        showToast('Categoría eliminada (clic en Guardar Cambios para aplicar)', 'success');
       }
     }
 
-    // Publish Changes and Trigger Rebuild
+    // Save & Publish instantly via Apps Script REST API
     const btnPublish = document.getElementById('btn-publish');
-    
     btnPublish.addEventListener('click', async () => {
-      if (!appsScriptUrl) {
-        showToast('Error: PUBLIC_GOOGLE_APPS_SCRIPT_URL no está configurada.', 'error');
+      const targetUrl = urlInput.value.trim() || currentBranch.appsScriptUrl;
+
+      if (!targetUrl) {
+        showToast('Error: Debes ingresar la URL de la aplicación web de Apps Script para esta sucursal arriba.', 'error');
         return;
       }
 
-      if (confirm('¿Estás seguro de que deseas guardar los cambios en Google Sheets y reconstruir la web?')) {
+      if (confirm(`¿Guardar los cambios en el libro de la sucursal "${currentBranch.name}"?`)) {
         btnPublish.disabled = true;
-        btnPublish.textContent = 'Guardando datos...';
-        showToast('Iniciando guardado de datos en Google Sheets...', 'success');
+        btnPublish.textContent = 'Enviando a Google Sheets...';
+        showToast('Conectando con Google Apps Script REST API...', 'success');
 
         try {
           const payload = {
@@ -625,56 +586,36 @@ const appsScriptUrl = import.meta.env.GOOGLE_APPS_SCRIPT_URL || '';
             items: items
           };
 
-          // Send POST request to Google Apps Script Web App
-          const response = await fetch(appsScriptUrl, {
+          const response = await fetch(targetUrl, {
             method: 'POST',
             mode: 'cors',
             headers: {
-              'Content-Type': 'text/plain;charset=utf-8' // Standard Apps Script CORS requirement
+              'Content-Type': 'text/plain;charset=utf-8'
             },
             body: JSON.stringify(payload)
           });
 
           const result = await response.json();
 
-          if (result.success) {
-            showToast('Datos guardados. Rebuild de la web disparado en GitHub.', 'success');
-            
-            // Rebuild countdown/progress
-            let count = 120; // 2 minutes typical GitHub Actions compilation
-            btnPublish.textContent = `Actualizando (${count}s)`;
-            
-            const timer = setInterval(() => {
-              count--;
-              if (count <= 0) {
-                clearInterval(timer);
-                btnPublish.disabled = false;
-                btnPublish.innerHTML = `
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-                  Publicar Cambios
-                `;
-                showToast('¡Despliegue finalizado! Recarga la carta pública para ver los cambios.', 'success');
-              } else {
-                btnPublish.textContent = `Actualizando (${count}s)`;
-              }
-            }, 1000);
-            
-          } else {
-            btnPublish.disabled = false;
-            btnPublish.innerHTML = `
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-              Publicar Cambios
-            `;
-            showToast(`Error al guardar: ${result.message}`, 'error');
-          }
-        } catch (error) {
-          console.error('Error saving data to Apps Script:', error);
           btnPublish.disabled = false;
           btnPublish.innerHTML = `
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-            Publicar Cambios
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+            Guardar Cambios Al Instante
           `;
-          showToast('Error de red al conectar con Google Apps Script. Comprueba la conexión.', 'error');
+
+          if (result.success) {
+            showToast(`¡Carta de ${currentBranch.name} actualizada al instante!`, 'success');
+          } else {
+            showToast(`Error de servidor: ${result.message}`, 'error');
+          }
+        } catch (error) {
+          console.error('Error al guardar en Apps Script:', error);
+          btnPublish.disabled = false;
+          btnPublish.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+            Guardar Cambios Al Instante
+          `;
+          showToast('Error de red al enviar cambios. Revisa la URL de Apps Script.', 'error');
         }
       }
     });

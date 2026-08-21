@@ -1,19 +1,14 @@
 import Papa from 'papaparse';
 
-// Google Sheets CSV Export URLs
-const SPREADSHEET_ID = import.meta.env.GOOGLE_SPREADSHEET_ID;
-const SHEET_MENU_NAME = import.meta.env.GOOGLE_SHEET_MENU_NAME || 'Platos';
-const SHEET_CATEGORIES_NAME = import.meta.env.GOOGLE_SHEET_CATEGORIES_NAME || 'Categorias';
-
-// Mock data to fallback to if spreadsheet is not set up yet
-const MOCK_CATEGORIES = [
+// Default Mock Data for immediate visual display if no backend is configured yet
+export const MOCK_CATEGORIES = [
   { id: 'entradas', name: 'Entradas', icon: '🥟', order: 1 },
   { id: 'burgers', name: 'Hamburguesas', icon: '🍔', order: 2 },
   { id: 'postres', name: 'Postres', icon: '🍰', order: 3 },
   { id: 'bebidas', name: 'Bebidas', icon: '🥤', order: 4 }
 ];
 
-const MOCK_ITEMS = [
+export const MOCK_ITEMS = [
   {
     id: 'e1',
     name: 'Papas Rústicas Cheddar',
@@ -62,7 +57,7 @@ const MOCK_ITEMS = [
     imageUrl: 'https://images.unsplash.com/photo-1525059696034-4967a8e1dca2?w=500&auto=format&fit=crop&q=80',
     categoryId: 'burgers',
     isRecommended: false,
-    isAvailable: false // Out of stock to show disabled visual
+    isAvailable: false
   },
   {
     id: 'p1',
@@ -97,89 +92,102 @@ const MOCK_ITEMS = [
 ];
 
 /**
- * Fetch and parse data from a specific Google Sheet tab
+ * Obtener datos completos de la sucursal (Categorías y Platos) vía Apps Script REST API o CSV Fallback
  */
-async function fetchSheetData(sheetName) {
-  if (!SPREADSHEET_ID) {
-    throw new Error('GOOGLE_SPREADSHEET_ID is not configured in environment variables.');
+export async function getBranchMenuData(branchConfig = {}) {
+  const { appsScriptUrl, spreadsheetId } = branchConfig;
+
+  // 1. Intentar consultar directamente la REST API del Apps Script de la sucursal
+  if (appsScriptUrl) {
+    try {
+      const response = await fetch(appsScriptUrl);
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.success && Array.isArray(data.categories) && Array.isArray(data.items)) {
+          return {
+            categories: data.categories,
+            items: data.items,
+            source: 'rest_api'
+          };
+        }
+      }
+    } catch (err) {
+      console.warn('No se pudo obtener datos vía Apps Script REST API:', err.message);
+    }
   }
 
-  // Construct Google Sheets export URL for CSV
-  const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
-  
-  try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+  // 2. Fallback a exportación CSV pública de Google Sheets
+  if (spreadsheetId) {
+    try {
+      const [categories, items] = await Promise.all([
+        fetchSheetCsv(spreadsheetId, 'Categorias'),
+        fetchSheetCsv(spreadsheetId, 'Platos')
+      ]);
+
+      const formattedCategories = categories.map(row => ({
+        id: String(row.id || '').trim().toLowerCase(),
+        name: String(row.name || '').trim(),
+        icon: String(row.icon || '').trim(),
+        order: parseInt(row.order) || 99
+      })).sort((a, b) => a.order - b.order);
+
+      const formattedItems = items.map(row => ({
+        id: String(row.id || '').trim(),
+        name: String(row.name || '').trim(),
+        description: String(row.description || '').trim(),
+        price: parseFloat(row.price) || 0,
+        imageUrl: String(row.imageUrl || row.imageurl || '').trim(),
+        categoryId: String(row.categoryId || row.categoryid || '').trim().toLowerCase(),
+        isRecommended: String(row.isRecommended || row.isrecommended).toLowerCase() === 'true',
+        isAvailable: String(row.isAvailable || row.isavailable).toLowerCase() !== 'false'
+      }));
+
+      return {
+        categories: formattedCategories.length > 0 ? formattedCategories : MOCK_CATEGORIES,
+        items: formattedItems.length > 0 ? formattedItems : MOCK_ITEMS,
+        source: 'csv'
+      };
+    } catch (err) {
+      console.warn('Error al leer CSV público de Google Sheets:', err.message);
     }
-    const csvText = await response.text();
-    
-    return new Promise((resolve, reject) => {
-      Papa.parse(csvText, {
-        header: true,
-        skipEmptyLines: true,
-        complete: (results) => {
-          resolve(results.data);
-        },
-        error: (error) => {
-          reject(error);
-        }
-      });
-    });
-  } catch (error) {
-    console.error(`Error fetching sheet "${sheetName}":`, error);
-    throw error;
   }
+
+  // 3. Fallback a Mock Data
+  return {
+    categories: MOCK_CATEGORIES,
+    items: MOCK_ITEMS,
+    source: 'mock'
+  };
 }
 
 /**
- * Get Categories
+ * Auxiliar para descargar CSV desde Google Sheets
+ */
+async function fetchSheetCsv(spreadsheetId, sheetName) {
+  const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}&t=${Date.now()}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const text = await res.text();
+
+  return new Promise((resolve, reject) => {
+    Papa.parse(text, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => resolve(results.data),
+      error: (err) => reject(err)
+    });
+  });
+}
+
+/**
+ * Mantenemos compatibilidad con métodos legacy getCategories y getMenuItems
  */
 export async function getCategories() {
-  try {
-    if (!SPREADSHEET_ID) {
-      console.log('Using mock categories (GOOGLE_SPREADSHEET_ID not defined)');
-      return MOCK_CATEGORIES;
-    }
-    const rawData = await fetchSheetData(SHEET_CATEGORIES_NAME);
-    
-    // Format categories
-    return rawData.map(row => ({
-      id: String(row.id || '').trim().toLowerCase(),
-      name: String(row.name || '').trim(),
-      icon: String(row.icon || '').trim(),
-      order: parseInt(row.order) || 99
-    })).sort((a, b) => a.order - b.order);
-  } catch (error) {
-    console.warn('Falling back to mock categories due to error:', error.message);
-    return MOCK_CATEGORIES;
-  }
+  const data = await getBranchMenuData({});
+  return data.categories;
 }
 
-/**
- * Get Menu Items
- */
 export async function getMenuItems() {
-  try {
-    if (!SPREADSHEET_ID) {
-      console.log('Using mock menu items (GOOGLE_SPREADSHEET_ID not defined)');
-      return MOCK_ITEMS;
-    }
-    const rawData = await fetchSheetData(SHEET_MENU_NAME);
-    
-    // Format items
-    return rawData.map(row => ({
-      id: String(row.id || '').trim(),
-      name: String(row.name || '').trim(),
-      description: String(row.description || '').trim(),
-      price: parseFloat(row.price) || 0,
-      imageUrl: String(row.imageUrl || '').trim(),
-      categoryId: String(row.categoryId || '').trim().toLowerCase(),
-      isRecommended: String(row.isRecommended || '').trim().toLowerCase() === 'true',
-      isAvailable: String(row.isAvailable || '').trim().toLowerCase() !== 'false' // default to true unless explicitly 'false'
-    }));
-  } catch (error) {
-    console.warn('Falling back to mock menu items due to error:', error.message);
-    return MOCK_ITEMS;
-  }
+  const data = await getBranchMenuData({});
+  return data.items;
 }

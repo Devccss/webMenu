@@ -1,39 +1,62 @@
 /**
- * GOOGLE APPS SCRIPT - API BACKEND PARA CARTA DE RESTAURANTE
+ * GOOGLE APPS SCRIPT - REST API BACKEND MULTI-SUCURSAL PARA CARTA DIGITAL
  * 
- * Instrucciones de instalación:
- * 1. Abre tu Google Sheet.
- * 2. Ve a Extenciones > Apps Script.
- * 3. Borra todo el código existente y pega este contenido.
- * 4. Configura las variables en el menú de la izquierda: Configuración del proyecto > Propiedades del script.
- *    Agrega las siguientes propiedades:
- *    - ADMIN_USER : Nombre de usuario para acceder al panel (ej: admin)
- *    - ADMIN_PASS : Contraseña para acceder al panel
- *    - GITHUB_TOKEN : Un Personal Access Token (PAT) de tu cuenta de GitHub con permisos de escritura (repo o workflow)
- *    - GITHUB_OWNER : Tu nombre de usuario en GitHub (dueño del repositorio)
- *    - GITHUB_REPO : El nombre de tu repositorio de GitHub (ej: mi-menu-restaurant)
+ * Instrucciones de instalación para cada Libro de Sucursal:
+ * 1. Abre el Google Sheet de la sucursal correspondiente.
+ * 2. Ve a Extensiones > Apps Script.
+ * 3. Borra todo el código existente y pega este archivo completo.
+ * 4. Configura las credenciales en: Configuración del proyecto > Propiedades del script:
+ *    - ADMIN_USER : Nombre de usuario para acceder al panel de esta sucursal (ej: admin)
+ *    - ADMIN_PASS : Contraseña para acceder al panel (ej: admin123)
  * 5. Haz clic en "Implementar" (arriba a la derecha) > "Nueva implementación".
  * 6. Selecciona tipo: "Aplicación web".
- * 7. Configura:
+ * 7. Configuración requerida:
  *    - Ejecutar como: "Tú" (tu correo de Google).
- *    - Quién tiene acceso: "Cualquiera".
- * 8. Haz clic en "Implementar". Otorga los permisos solicitados.
- * 9. Copia la "URL de la aplicación web" generada y colócala en tu archivo .env como PUBLIC_GOOGLE_APPS_SCRIPT_URL.
+ *    - Quién tiene acceso: "Cualquiera" (necesario para lectura REST pública desde la web).
+ * 8. Haz clic en "Implementar" y copia la "URL de la aplicación web".
+ * 9. Esa URL es la que usará el panel y la web pública para esta sucursal.
  */
 
-// Configuración básica (por si no configuras las Propiedades del Script)
+// Credenciales por defecto si no se definen en Propiedades del Script
 const DEFAULT_USER = "admin";
 const DEFAULT_PASS = "admin123";
 
 /**
- * Manejador de peticiones POST (Crear/Modificar datos y disparar despliegue)
+ * Manejador GET: Retorna las categorías y platos guardados en este Google Sheet en formato JSON REST
+ */
+function doGet(e) {
+  try {
+    const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+    
+    const categories = getCategoriesData(spreadsheet);
+    const items = getMenuItemsData(spreadsheet);
+    
+    return createJsonResponse({
+      success: true,
+      status: "online",
+      categories: categories,
+      items: items
+    });
+  } catch (error) {
+    return createJsonResponse({
+      success: false,
+      message: "Error al leer datos del libro de Google Sheets: " + error.toString()
+    }, 500);
+  }
+}
+
+/**
+ * Manejador POST: Guarda cambios en las pestañas "Categorias" y "Platos" al instante
  */
 function doPost(e) {
   try {
-    // Parsear el JSON recibido
+    if (!e.postData || !e.postData.contents) {
+      return createJsonResponse({ success: false, message: "Petición vacía sin datos." }, 400);
+    }
+
     const payload = JSON.parse(e.postData.contents);
     
-    // Obtener credenciales configuradas
+    // Obtener credenciales de la sucursal
     const scriptProperties = PropertiesService.getScriptProperties();
     const secureUser = scriptProperties.getProperty('ADMIN_USER') || DEFAULT_USER;
     const securePass = scriptProperties.getProperty('ADMIN_PASS') || DEFAULT_PASS;
@@ -42,55 +65,51 @@ function doPost(e) {
     if (payload.username !== secureUser || payload.password !== securePass) {
       return createJsonResponse({ 
         success: false, 
-        message: "Usuario o contraseña incorrectos en el servidor." 
+        message: "Usuario o contraseña incorrectos para esta sucursal." 
       }, 401);
     }
     
     const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
     
-    // 1. ESCRIBIR CATEGORÍAS
+    // 1. Guardar Categorías
     if (payload.categories && Array.isArray(payload.categories)) {
       let sheetCat = spreadsheet.getSheetByName("Categorias");
       if (!sheetCat) {
         sheetCat = spreadsheet.insertSheet("Categorias");
       }
       sheetCat.clear();
-      
-      // Escribir cabeceras
       sheetCat.getRange(1, 1, 1, 4).setValues([["id", "name", "icon", "order"]]);
       
       if (payload.categories.length > 0) {
         const catRows = payload.categories.map(cat => [
-          cat.id || "",
-          cat.name || "",
-          cat.icon || "",
-          cat.order || 99
+          String(cat.id || "").trim(),
+          String(cat.name || "").trim(),
+          String(cat.icon || "").trim(),
+          parseInt(cat.order) || 99
         ]);
         sheetCat.getRange(2, 1, catRows.length, 4).setValues(catRows);
       }
     }
     
-    // 2. ESCRIBIR PLATOS / MENU
+    // 2. Guardar Platos
     if (payload.items && Array.isArray(payload.items)) {
       let sheetMenu = spreadsheet.getSheetByName("Platos");
       if (!sheetMenu) {
         sheetMenu = spreadsheet.insertSheet("Platos");
       }
       sheetMenu.clear();
-      
-      // Escribir cabeceras
       sheetMenu.getRange(1, 1, 1, 8).setValues([[
         "id", "name", "description", "price", "imageUrl", "categoryId", "isRecommended", "isAvailable"
       ]]);
       
       if (payload.items.length > 0) {
         const itemRows = payload.items.map(item => [
-          item.id || "",
-          item.name || "",
-          item.description || "",
-          item.price || 0,
-          item.imageUrl || "",
-          item.categoryId || "",
+          String(item.id || "").trim(),
+          String(item.name || "").trim(),
+          String(item.description || "").trim(),
+          Number(item.price) || 0,
+          String(item.imageUrl || "").trim(),
+          String(item.categoryId || "").trim(),
           item.isRecommended ? "true" : "false",
           item.isAvailable ? "true" : "false"
         ]);
@@ -98,80 +117,89 @@ function doPost(e) {
       }
     }
     
-    // 3. DISPARAR REBUILD EN GITHUB ACTIONS
-    const githubToken = scriptProperties.getProperty('GITHUB_TOKEN');
-    const githubOwner = scriptProperties.getProperty('GITHUB_OWNER');
-    const githubRepo = scriptProperties.getProperty('GITHUB_REPO');
-    
-    let githubTriggered = false;
-    let githubMessage = "";
-    
-    if (githubToken && githubOwner && githubRepo) {
-      const githubUrl = `https://api.github.com/repos/${githubOwner}/${githubRepo}/dispatches`;
-      
-      const headers = {
-        "Authorization": `token ${githubToken}`,
-        "Accept": "application/vnd.github.v3+json",
-        "User-Agent": "GoogleAppsScript-MenuApp"
-      };
-      
-      const requestPayload = JSON.stringify({
-        "event_type": "deploy_menu" // Debe coincidir con el workflow de GitHub Actions
-      });
-      
-      const options = {
-        "method": "post",
-        "headers": headers,
-        "payload": requestPayload,
-        "contentType": "application/json",
-        "muteHttpExceptions": true
-      };
-      
-      const response = UrlFetchApp.fetch(githubUrl, options);
-      const responseCode = response.getResponseCode();
-      
-      if (responseCode === 204 || responseCode === 200 || responseCode === 201) {
-        githubTriggered = true;
-        githubMessage = "Recompilación de la web iniciada en GitHub Actions.";
-      } else {
-        githubMessage = `Error al conectar con la API de GitHub: ${response.getContentText()} (Código: ${responseCode})`;
-      }
-    } else {
-      githubMessage = "Variables de GitHub no configuradas en Google Sheets. Los datos se guardaron en la hoja, pero no se disparó la compilación.";
-    }
-    
     return createJsonResponse({
       success: true,
-      message: "Carta actualizada con éxito en Google Sheets.",
-      githubRebuild: githubTriggered,
-      githubStatus: githubMessage
+      message: "Carta de la sucursal actualizada al instante en Google Sheets."
     });
     
   } catch (error) {
     return createJsonResponse({ 
       success: false, 
-      message: "Excepción en el servidor: " + error.toString() 
+      message: "Excepción en el servidor de Apps Script: " + error.toString() 
     }, 500);
   }
 }
 
 /**
- * Manejador de peticiones GET (para verificar conexión y obtener estado rápido)
+ * Leer categorías de la hoja activa
  */
-function doGet(e) {
-  return createJsonResponse({
-    success: true,
-    status: "online",
-    message: "API de Google Sheets para carta digital activa y lista."
-  });
+function getCategoriesData(spreadsheet) {
+  const sheet = spreadsheet.getSheetByName("Categorias");
+  if (!sheet) return [];
+  
+  const values = sheet.getDataRange().getValues();
+  if (values.length <= 1) return [];
+  
+  const headers = values[0].map(h => String(h).trim().toLowerCase());
+  const categories = [];
+  
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    if (!row.join("").trim()) continue;
+    
+    const cat = {};
+    headers.forEach((h, idx) => cat[h] = row[idx]);
+    
+    categories.push({
+      id: String(cat.id || "").trim().toLowerCase(),
+      name: String(cat.name || "").trim(),
+      icon: String(cat.icon || "").trim(),
+      order: parseInt(cat.order) || 99
+    });
+  }
+  
+  return categories.sort((a, b) => a.order - b.order);
 }
 
 /**
- * Helper para generar respuestas JSON compatibles con CORS
+ * Leer platos de la hoja activa
+ */
+function getMenuItemsData(spreadsheet) {
+  const sheet = spreadsheet.getSheetByName("Platos");
+  if (!sheet) return [];
+  
+  const values = sheet.getDataRange().getValues();
+  if (values.length <= 1) return [];
+  
+  const headers = values[0].map(h => String(h).trim().toLowerCase());
+  const items = [];
+  
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    if (!row.join("").trim()) continue;
+    
+    const item = {};
+    headers.forEach((h, idx) => item[h] = row[idx]);
+    
+    items.push({
+      id: String(item.id || "").trim(),
+      name: String(item.name || "").trim(),
+      description: String(item.description || "").trim(),
+      price: parseFloat(item.price) || 0,
+      imageUrl: String(item.imageurl || item.imageUrl || "").trim(),
+      categoryId: String(item.categoryid || item.categoryId || "").trim().toLowerCase(),
+      isRecommended: String(item.isrecommended || item.isRecommended).toLowerCase() === 'true',
+      isAvailable: String(item.isavailable || item.isAvailable).toLowerCase() !== 'false'
+    });
+  }
+  
+  return items;
+}
+
+/**
+ * Generar respuesta JSON pura compatible con llamadas REST HTTP
  */
 function createJsonResponse(data, statusCode = 200) {
-  // Nota: Apps Script siempre redirige o responde text/plain, para evitar bloqueos CORS
-  // en navegadores estructuramos una salida de texto JSON pura.
   return ContentService.createTextOutput(JSON.stringify(data))
     .setMimeType(ContentService.MimeType.JSON);
 }
