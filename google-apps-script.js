@@ -22,18 +22,20 @@ const DEFAULT_USER = "admin";
 const DEFAULT_PASS = "admin123";
 
 /**
- * Manejador GET: Retorna las categorías y platos guardados en este Google Sheet en formato JSON REST
+ * Manejador GET: Retorna perfil, categorías y platos guardados en este Google Sheet en formato JSON REST
  */
 function doGet(e) {
   try {
     const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
     
+    const profile = getProfileData(spreadsheet);
     const categories = getCategoriesData(spreadsheet);
     const items = getMenuItemsData(spreadsheet);
     
     return createJsonResponse({
       success: true,
       status: "online",
+      profile: profile,
       categories: categories,
       items: items
     });
@@ -46,7 +48,7 @@ function doGet(e) {
 }
 
 /**
- * Manejador POST: Guarda cambios en las pestañas "Categorias" y "Platos" al instante
+ * Manejador POST: Guarda cambios en las pestañas "Perfil", "Categorias" y "Platos" al instante
  */
 function doPost(e) {
   try {
@@ -71,7 +73,23 @@ function doPost(e) {
     
     const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
     
-    // 1. Guardar Categorías
+    // 1. Guardar Perfil
+    if (payload.profile && typeof payload.profile === 'object') {
+      let sheetProf = spreadsheet.getSheetByName("Perfil");
+      if (!sheetProf) {
+        sheetProf = spreadsheet.insertSheet("Perfil");
+      }
+      sheetProf.clear();
+      sheetProf.getRange(1, 1, 1, 2).setValues([["key", "value"]]);
+      
+      const profileKeys = Object.keys(payload.profile);
+      if (profileKeys.length > 0) {
+        const profRows = profileKeys.map(k => [String(k).trim(), String(payload.profile[k] || "").trim()]);
+        sheetProf.getRange(2, 1, profRows.length, 2).setValues(profRows);
+      }
+    }
+
+    // 2. Guardar Categorías
     if (payload.categories && Array.isArray(payload.categories)) {
       let sheetCat = spreadsheet.getSheetByName("Categorias");
       if (!sheetCat) {
@@ -91,7 +109,7 @@ function doPost(e) {
       }
     }
     
-    // 2. Guardar Platos
+    // 3. Guardar Platos
     if (payload.items && Array.isArray(payload.items)) {
       let sheetMenu = spreadsheet.getSheetByName("Platos");
       if (!sheetMenu) {
@@ -119,7 +137,7 @@ function doPost(e) {
     
     return createJsonResponse({
       success: true,
-      message: "Carta de la sucursal actualizada al instante en Google Sheets."
+      message: "Carta y perfil de la sucursal actualizados al instante en Google Sheets."
     });
     
   } catch (error) {
@@ -128,6 +146,28 @@ function doPost(e) {
       message: "Excepción en el servidor de Apps Script: " + error.toString() 
     }, 500);
   }
+}
+
+/**
+ * Leer perfil/preferencias de la hoja activa
+ */
+function getProfileData(spreadsheet) {
+  const sheet = spreadsheet.getSheetByName("Perfil");
+  if (!sheet) return {};
+  
+  const values = sheet.getDataRange().getValues();
+  if (values.length <= 1) return {};
+  
+  const profile = {};
+  
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    const key = String(row[0] || "").trim();
+    if (!key) continue;
+    profile[key] = String(row[1] || "").trim();
+  }
+  
+  return profile;
 }
 
 /**
@@ -203,3 +243,4 @@ function createJsonResponse(data, statusCode = 200) {
   return ContentService.createTextOutput(JSON.stringify(data))
     .setMimeType(ContentService.MimeType.JSON);
 }
+

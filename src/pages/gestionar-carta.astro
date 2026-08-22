@@ -1,6 +1,6 @@
 ---
 import { getBranchMenuData } from '../lib/googleSheets';
-import { getBranchConfig, LOCATIONS_CONFIG } from '../lib/branches';
+import { getBranchConfig } from '../lib/branches';
 import '../styles/global.css';
 
 // Obtener sucursal desde los parámetros de URL (?local=centro)
@@ -8,9 +8,7 @@ const localParam = Astro.url.searchParams.get('local') || 'principal';
 const currentBranch = getBranchConfig(localParam);
 
 // Cargar datos iniciales
-const { categories: initialCategories, items: initialItems } = await getBranchMenuData(currentBranch);
-
-const availableBranches = Object.values(LOCATIONS_CONFIG);
+const { profile: initialProfile, categories: initialCategories, items: initialItems } = await getBranchMenuData(currentBranch);
 ---
 
 <!DOCTYPE html>
@@ -18,7 +16,7 @@ const availableBranches = Object.values(LOCATIONS_CONFIG);
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Gestión de Carta - {currentBranch.name}</title>
+  <title>Gestión de Carta - {initialProfile.name}</title>
   <meta name="robots" content="noindex, nofollow" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚙️</text></svg>">
 </head>
@@ -31,18 +29,8 @@ const availableBranches = Object.values(LOCATIONS_CONFIG);
     <div id="login-container" class="admin-login">
       <h2>Administración de Carta</h2>
       <p style="text-align: center; color: var(--accent-color); font-weight: 600; margin-top: -0.5rem; margin-bottom: 1.5rem;">
-        📍 {currentBranch.name}
+        📍 {initialProfile.name} ({currentBranch.id})
       </p>
-
-      <!-- Selector rápido de sucursal en login -->
-      <div style="margin-bottom: 1.5rem; text-align: center;">
-        <label for="login-branch-select" style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">Cambiar de Sucursal:</label>
-        <select id="login-branch-select" style="background: var(--card-bg); color: var(--text-color); border: 1px solid var(--border-color); padding: 0.5rem 1rem; border-radius: var(--radius-sm); font-size: 0.9rem; cursor: pointer; width: 100%;">
-          {availableBranches.map(b => (
-            <option value={b.id} selected={b.id === currentBranch.id}>{b.name}</option>
-          ))}
-        </select>
-      </div>
 
       <form id="login-form">
         <div class="form-group">
@@ -53,7 +41,7 @@ const availableBranches = Object.values(LOCATIONS_CONFIG);
           <label for="admin-pass">Contraseña</label>
           <input type="password" id="admin-pass" required autocomplete="current-password" placeholder="••••••••" />
         </div>
-        <button type="submit" class="btn btn-full">Ingresar a {currentBranch.name}</button>
+        <button type="submit" class="btn btn-full">Ingresar a {initialProfile.name}</button>
       </form>
     </div>
 
@@ -62,19 +50,12 @@ const availableBranches = Object.values(LOCATIONS_CONFIG);
       <div class="admin-header" style="flex-wrap: wrap; gap: 1rem;">
         <div>
           <h1 style="font-size: 1.75rem; margin-bottom: 0.25rem;">Panel de Control</h1>
-          <p class="subtitle" style="text-align: left; color: var(--accent-color); font-weight: 600;">
-            📍 {currentBranch.name} • Gestión de Carta REST API
+          <p class="subtitle" id="dashboard-subtitle" style="text-align: left; color: var(--accent-color); font-weight: 600;">
+            📍 {initialProfile.name} • Gestión REST API
           </p>
         </div>
 
         <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
-          <!-- Selector de Sucursal en el Dashboard -->
-          <select id="dashboard-branch-select" style="background: var(--card-bg); color: var(--text-color); border: 1px solid var(--border-color); padding: 0.5rem; border-radius: var(--radius-sm); font-size: 0.85rem; cursor: pointer;">
-            {availableBranches.map(b => (
-              <option value={b.id} selected={b.id === currentBranch.id}>{b.name}</option>
-            ))}
-          </select>
-
           <button id="btn-publish" class="btn">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
             Guardar Cambios Al Instante
@@ -86,7 +67,7 @@ const availableBranches = Object.values(LOCATIONS_CONFIG);
       <!-- Configuración URL Apps Script -->
       <div style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1.5rem;">
         <label for="custom-apps-script-url" style="font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 0.5rem;">
-          🔗 URL del Web App de Apps Script (Libro de {currentBranch.name}):
+          🔗 URL del Web App de Apps Script (Libro de {currentBranch.id}):
         </label>
         <input 
           type="url" 
@@ -104,6 +85,7 @@ const availableBranches = Object.values(LOCATIONS_CONFIG);
       <div class="admin-tabs">
         <button id="tab-items" class="admin-tab active">Platos</button>
         <button id="tab-categories" class="admin-tab">Categorías</button>
+        <button id="tab-profile" class="admin-tab">Perfil del Local</button>
       </div>
 
       <!-- PLATOS TAB PANEL -->
@@ -132,6 +114,65 @@ const availableBranches = Object.values(LOCATIONS_CONFIG);
         <div id="admin-categories-list" class="admin-items-list">
           <!-- Populated dynamically -->
         </div>
+      </div>
+
+      <!-- PERFIL TAB PANEL -->
+      <div id="panel-profile" style="display: none;">
+        <div style="margin-bottom: 1.5rem;">
+          <h2 style="font-size: 1.25rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.5rem;">Perfil y Preferencias de esta Sucursal</h2>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">Estos datos se guardan en la pestaña <strong>Perfil</strong> de tu Google Sheet y personalizan la web de esta sucursal.</p>
+        </div>
+
+        <form id="form-profile-tab" style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem;">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
+            <div class="form-group">
+              <label for="prof-name">Nombre del Local</label>
+              <input type="text" id="prof-name" value={initialProfile.name || ''} placeholder="Ej: Bistró Don Juan - Centro" />
+            </div>
+
+            <div class="form-group">
+              <label for="prof-subtitle">Subtítulo / Eslogan</label>
+              <input type="text" id="prof-subtitle" value={initialProfile.subtitle || ''} placeholder="Ej: Sabores artesanales en el centro" />
+            </div>
+
+            <div class="form-group">
+              <label for="prof-logoUrl">URL del Logo (Opcional)</label>
+              <input type="url" id="prof-logoUrl" value={initialProfile.logoUrl || ''} placeholder="https://..." />
+            </div>
+
+            <div class="form-group">
+              <label for="prof-accentColor">Color Principal / Marca (Hexadecimal)</label>
+              <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <input type="color" id="prof-accentColor-picker" value={initialProfile.accentColor || '#e63946'} style="width: 40px; height: 38px; border: none; border-radius: var(--radius-sm); cursor: pointer;" />
+                <input type="text" id="prof-accentColor" value={initialProfile.accentColor || '#e63946'} placeholder="#e63946" style="flex: 1;" />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="prof-address">Dirección Física</label>
+              <input type="text" id="prof-address" value={initialProfile.address || ''} placeholder="Ej: Av. Corrientes 1234" />
+            </div>
+
+            <div class="form-group">
+              <label for="prof-phone">Teléfono de Contacto</label>
+              <input type="text" id="prof-phone" value={initialProfile.phone || ''} placeholder="Ej: +54 11 4321-5678" />
+            </div>
+
+            <div class="form-group">
+              <label for="prof-whatsapp">Número de WhatsApp (con código de país)</label>
+              <input type="text" id="prof-whatsapp" value={initialProfile.whatsapp || ''} placeholder="Ej: 5491143215678" />
+            </div>
+
+            <div class="form-group">
+              <label for="prof-openingHours">Horario de Atención</label>
+              <input type="text" id="prof-openingHours" value={initialProfile.openingHours || ''} placeholder="Ej: Lun a Dom: 12:00 a 00:00" />
+            </div>
+          </div>
+
+          <p style="font-size: 0.8rem; color: var(--accent-color); margin-top: 1rem; font-weight: 500;">
+            💡 Haz clic en el botón superior "Guardar Cambios Al Instante" para aplicar el perfil a Google Sheets.
+          </p>
+        </form>
       </div>
     </div>
   </div>
@@ -224,8 +265,9 @@ const availableBranches = Object.values(LOCATIONS_CONFIG);
     </div>
   </div>
 
-  <script is:inline define:vars={{ initialCategories, initialItems, currentBranch }}>
+  <script is:inline define:vars={{ initialProfile, initialCategories, initialItems, currentBranch }}>
     // State
+    let profile = { ...initialProfile };
     let categories = [...initialCategories];
     let items = [...initialItems];
     let isEditingItem = false;
@@ -237,6 +279,7 @@ const availableBranches = Object.values(LOCATIONS_CONFIG);
     const dashboardContainer = document.getElementById('dashboard-container');
     const panelItems = document.getElementById('panel-items');
     const panelCategories = document.getElementById('panel-categories');
+    const panelProfile = document.getElementById('panel-profile');
     const itemsListContainer = document.getElementById('admin-items-list');
     const categoriesListContainer = document.getElementById('admin-categories-list');
     const modalItem = document.getElementById('modal-item');
@@ -247,24 +290,48 @@ const availableBranches = Object.values(LOCATIONS_CONFIG);
     const toastEl = document.getElementById('toast');
     const urlInput = document.getElementById('custom-apps-script-url');
 
-    // Branch Selectors Handler
-    const handleBranchChange = (selectEl) => {
-      if (selectEl) {
-        selectEl.addEventListener('change', (e) => {
-          const newLocal = e.target.value;
-          const currentUrl = new URL(window.location.href);
-          currentUrl.searchParams.set('local', newLocal);
-          window.location.href = currentUrl.toString();
-        });
-      }
-    };
-    handleBranchChange(document.getElementById('login-branch-select'));
-    handleBranchChange(document.getElementById('dashboard-branch-select'));
-
     function showToast(message, type = 'success') {
       toastEl.textContent = message;
       toastEl.className = `notification show ${type}`;
       setTimeout(() => { toastEl.className = `notification ${type}`; }, 4000);
+    }
+
+    // Color picker sync
+    const picker = document.getElementById('prof-accentColor-picker');
+    const hexInput = document.getElementById('prof-accentColor');
+    if (picker && hexInput) {
+      picker.addEventListener('input', (e) => { hexInput.value = e.target.value; });
+      hexInput.addEventListener('input', (e) => { picker.value = e.target.value; });
+    }
+
+    // Fill profile fields from state
+    function syncProfileFieldsToUI() {
+      if (!profile) return;
+      if (document.getElementById('prof-name')) document.getElementById('prof-name').value = profile.name || '';
+      if (document.getElementById('prof-subtitle')) document.getElementById('prof-subtitle').value = profile.subtitle || '';
+      if (document.getElementById('prof-logoUrl')) document.getElementById('prof-logoUrl').value = profile.logoUrl || '';
+      if (document.getElementById('prof-accentColor')) document.getElementById('prof-accentColor').value = profile.accentColor || '#e63946';
+      if (document.getElementById('prof-accentColor-picker')) document.getElementById('prof-accentColor-picker').value = profile.accentColor || '#e63946';
+      if (document.getElementById('prof-address')) document.getElementById('prof-address').value = profile.address || '';
+      if (document.getElementById('prof-phone')) document.getElementById('prof-phone').value = profile.phone || '';
+      if (document.getElementById('prof-whatsapp')) document.getElementById('prof-whatsapp').value = profile.whatsapp || '';
+      if (document.getElementById('prof-openingHours')) document.getElementById('prof-openingHours').value = profile.openingHours || '';
+
+      const dashSub = document.getElementById('dashboard-subtitle');
+      if (dashSub) dashSub.textContent = `📍 ${profile.name || currentBranch.name} • Gestión REST API`;
+    }
+
+    function collectProfileFromUI() {
+      return {
+        name: document.getElementById('prof-name')?.value.trim() || '',
+        subtitle: document.getElementById('prof-subtitle')?.value.trim() || '',
+        logoUrl: document.getElementById('prof-logoUrl')?.value.trim() || '',
+        accentColor: document.getElementById('prof-accentColor')?.value.trim() || '#e63946',
+        address: document.getElementById('prof-address')?.value.trim() || '',
+        phone: document.getElementById('prof-phone')?.value.trim() || '',
+        whatsapp: document.getElementById('prof-whatsapp')?.value.trim() || '',
+        openingHours: document.getElementById('prof-openingHours')?.value.trim() || ''
+      };
     }
 
     // Check active session
@@ -313,6 +380,7 @@ const availableBranches = Object.values(LOCATIONS_CONFIG);
         showToast('Utilizando datos locales precompilados. Configura la URL de Apps Script arriba.', 'error');
         renderItems();
         renderCategories();
+        syncProfileFieldsToUI();
         return;
       }
 
@@ -323,6 +391,7 @@ const availableBranches = Object.values(LOCATIONS_CONFIG);
         if (response.ok) {
           const data = await response.json();
           if (data && data.success) {
+            if (data.profile) profile = { ...profile, ...data.profile };
             if (Array.isArray(data.categories) && data.categories.length > 0) categories = data.categories;
             if (Array.isArray(data.items) && data.items.length > 0) items = data.items;
             showToast('Datos más recientes cargados desde Apps Script REST API', 'success');
@@ -335,24 +404,39 @@ const availableBranches = Object.values(LOCATIONS_CONFIG);
 
       renderItems();
       renderCategories();
+      syncProfileFieldsToUI();
     }
 
     // Tab Navigation
     const tabItems = document.getElementById('tab-items');
     const tabCategories = document.getElementById('tab-categories');
+    const tabProfile = document.getElementById('tab-profile');
 
     tabItems.addEventListener('click', () => {
       tabItems.classList.add('active');
       tabCategories.classList.remove('active');
+      tabProfile.classList.remove('active');
       panelItems.style.display = 'block';
       panelCategories.style.display = 'none';
+      panelProfile.style.display = 'none';
     });
 
     tabCategories.addEventListener('click', () => {
       tabCategories.classList.add('active');
       tabItems.classList.remove('active');
+      tabProfile.classList.remove('active');
       panelCategories.style.display = 'block';
       panelItems.style.display = 'none';
+      panelProfile.style.display = 'none';
+    });
+
+    tabProfile.addEventListener('click', () => {
+      tabProfile.classList.add('active');
+      tabItems.classList.remove('active');
+      tabCategories.classList.remove('active');
+      panelProfile.style.display = 'block';
+      panelItems.style.display = 'none';
+      panelCategories.style.display = 'none';
     });
 
     // Render Items
@@ -573,7 +657,9 @@ const availableBranches = Object.values(LOCATIONS_CONFIG);
         return;
       }
 
-      if (confirm(`¿Guardar los cambios en el libro de la sucursal "${currentBranch.name}"?`)) {
+      profile = collectProfileFromUI();
+
+      if (confirm(`¿Guardar los cambios en el libro de la sucursal "${profile.name || currentBranch.name}"?`)) {
         btnPublish.disabled = true;
         btnPublish.textContent = 'Enviando a Google Sheets...';
         showToast('Conectando con Google Apps Script REST API...', 'success');
@@ -582,6 +668,7 @@ const availableBranches = Object.values(LOCATIONS_CONFIG);
           const payload = {
             username: adminToken.user,
             password: adminToken.pass,
+            profile: profile,
             categories: categories,
             items: items
           };
@@ -604,7 +691,7 @@ const availableBranches = Object.values(LOCATIONS_CONFIG);
           `;
 
           if (result.success) {
-            showToast(`¡Carta de ${currentBranch.name} actualizada al instante!`, 'success');
+            showToast(`¡Carta y perfil de ${profile.name || currentBranch.name} actualizados al instante!`, 'success');
           } else {
             showToast(`Error de servidor: ${result.message}`, 'error');
           }
@@ -622,3 +709,4 @@ const availableBranches = Object.values(LOCATIONS_CONFIG);
   </script>
 </body>
 </html>
+

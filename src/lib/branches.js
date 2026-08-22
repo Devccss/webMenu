@@ -5,43 +5,52 @@
  * Si no se pasa ninguna URL específica en la configuración, se utilizará la variable de entorno por defecto.
  */
 
-export const DEFAULT_LOCAL_ID = 'principal';
+export const DEFAULT_LOCAL_ID = '';
 
 export const LOCATIONS_CONFIG = {
-  'principal': {
-    id: 'principal',
-    name: 'Sucursal Principal',
-    spreadsheetId: import.meta.env.GOOGLE_SPREADSHEET_ID || '',
+  'prueba': {
+    id: 'prueba',
+    name: 'Página de Prueba',
+    spreadsheetId: import.meta.env.PUBLIC_GOOGLE_SPREADSHEET_ID || import.meta.env.GOOGLE_SPREADSHEET_ID || '',
     appsScriptUrl: import.meta.env.PUBLIC_GOOGLE_APPS_SCRIPT_URL || import.meta.env.GOOGLE_APPS_SCRIPT_URL || '',
   },
-  'centro': {
-    id: 'centro',
-    name: 'Sucursal Centro',
-    spreadsheetId: import.meta.env.GOOGLE_SPREADSHEET_ID_CENTRO || '',
-    appsScriptUrl: import.meta.env.GOOGLE_APPS_SCRIPT_URL_CENTRO || '',
+  'cubano': {
+    id: 'cubano',
+    name: 'Cafe Cubano',
+    spreadsheetId: import.meta.env.PUBLIC_CAFECUBANO_SPREADSHEET_ID || import.meta.env.CAFECUBANO_SPREADSHEET_ID || '',
+    appsScriptUrl: import.meta.env.PUBLIC_CAFECUBANO_GOOGLE_APPS_SCRIPT_URL || import.meta.env.CAFECUBANO_GOOGLE_APPS_SCRIPT_URL || '',
   },
   'norte': {
     id: 'norte',
     name: 'Sucursal Norte',
-    spreadsheetId: import.meta.env.GOOGLE_SPREADSHEET_ID_NORTE || '',
-    appsScriptUrl: import.meta.env.GOOGLE_APPS_SCRIPT_URL_NORTE || '',
+    spreadsheetId: import.meta.env.PUBLIC_GOOGLE_SPREADSHEET_ID_NORTE || import.meta.env.GOOGLE_SPREADSHEET_ID_NORTE || '',
+    appsScriptUrl: import.meta.env.PUBLIC_GOOGLE_APPS_SCRIPT_URL_NORTE || import.meta.env.GOOGLE_APPS_SCRIPT_URL_NORTE || '',
   }
 };
+
 
 /**
  * Obtener configuración de una sucursal por su ID o parámetro de URL
  */
 export function getBranchConfig(localId) {
   const normalizedId = String(localId || '').trim().toLowerCase();
+  const defaultConfig = LOCATIONS_CONFIG[DEFAULT_LOCAL_ID] || {};
+
   if (normalizedId && LOCATIONS_CONFIG[normalizedId]) {
-    return LOCATIONS_CONFIG[normalizedId];
+    const config = LOCATIONS_CONFIG[normalizedId];
+    return {
+      ...config,
+      spreadsheetId: config.spreadsheetId || defaultConfig.spreadsheetId || '',
+      appsScriptUrl: config.appsScriptUrl || defaultConfig.appsScriptUrl || ''
+    };
   }
   
-  // Si se pasa un ID desconocido o no configurado, retornar un objeto dinámico fallback
+  // Si se pasa un ID desconocido o no configurado, retornar un objeto dinámico fallback con las credenciales base
   return {
     id: normalizedId || DEFAULT_LOCAL_ID,
-    name: normalizedId ? `Sucursal ${normalizedId.toUpperCase()}` : LOCATIONS_CONFIG[DEFAULT_LOCAL_ID].name,
-    spreadsheetId: LOCATIONS_CONFIG[DEFAULT_LOCAL_ID].spreadsheetId,
-    appsScriptUrl: LOCATIONS_CONFIG[DEFAULT_LOCAL_ID].appsScriptUrl
+    name: normalizedId ? `Sucursal ${normalizedId.toUpperCase()}` : defaultConfig.name,
+    spreadsheetId: defaultConfig.spreadsheetId || '',
+    appsScriptUrl: defaultConfig.appsScriptUrl || ''
   };
 }
+

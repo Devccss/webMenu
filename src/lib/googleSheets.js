@@ -91,11 +91,28 @@ export const MOCK_ITEMS = [
   }
 ];
 
+export const DEFAULT_PROFILE = {
+  name: 'Bistró & Co.',
+  subtitle: 'Sabores artesanales • Carta Digital',
+  logoUrl: '',
+  accentColor: '#e63946',
+  address: 'Av. Principal 1234',
+  phone: '+54 11 4321-5678',
+  whatsapp: '5491143215678',
+  instagram: '@bistroandco',
+  openingHours: 'Lunes a Domingo: 12:00 hs a 00:00 hs'
+};
+
 /**
- * Obtener datos completos de la sucursal (Categorías y Platos) vía Apps Script REST API o CSV Fallback
+ * Obtener datos completos de la sucursal (Perfil, Categorías y Platos) vía Apps Script REST API o CSV Fallback
  */
 export async function getBranchMenuData(branchConfig = {}) {
-  const { appsScriptUrl, spreadsheetId } = branchConfig;
+  const { appsScriptUrl, spreadsheetId, name: configName } = branchConfig;
+
+  const baseProfile = {
+    ...DEFAULT_PROFILE,
+    name: configName || DEFAULT_PROFILE.name
+  };
 
   // 1. Intentar consultar directamente la REST API del Apps Script de la sucursal
   if (appsScriptUrl) {
@@ -104,7 +121,12 @@ export async function getBranchMenuData(branchConfig = {}) {
       if (response.ok) {
         const data = await response.json();
         if (data && data.success && Array.isArray(data.categories) && Array.isArray(data.items)) {
+          const profile = {
+            ...baseProfile,
+            ...(data.profile || {})
+          };
           return {
+            profile,
             categories: data.categories,
             items: data.items,
             source: 'rest_api'
@@ -119,10 +141,25 @@ export async function getBranchMenuData(branchConfig = {}) {
   // 2. Fallback a exportación CSV pública de Google Sheets
   if (spreadsheetId) {
     try {
-      const [categories, items] = await Promise.all([
+      const [profileRows, categories, items] = await Promise.all([
+        fetchSheetCsv(spreadsheetId, 'Perfil').catch(() => []),
         fetchSheetCsv(spreadsheetId, 'Categorias'),
         fetchSheetCsv(spreadsheetId, 'Platos')
       ]);
+
+      const csvProfile = {};
+      if (Array.isArray(profileRows)) {
+        profileRows.forEach(row => {
+          const key = String(row.key || row.Clave || row.Key || row[0] || '').trim();
+          const val = String(row.value || row.Valor || row.Value || row[1] || '').trim();
+          if (key) csvProfile[key] = val;
+        });
+      }
+
+      const profile = {
+        ...baseProfile,
+        ...csvProfile
+      };
 
       const formattedCategories = categories.map(row => ({
         id: String(row.id || '').trim().toLowerCase(),
@@ -143,6 +180,7 @@ export async function getBranchMenuData(branchConfig = {}) {
       }));
 
       return {
+        profile,
         categories: formattedCategories.length > 0 ? formattedCategories : MOCK_CATEGORIES,
         items: formattedItems.length > 0 ? formattedItems : MOCK_ITEMS,
         source: 'csv'
@@ -154,6 +192,7 @@ export async function getBranchMenuData(branchConfig = {}) {
 
   // 3. Fallback a Mock Data
   return {
+    profile: baseProfile,
     categories: MOCK_CATEGORIES,
     items: MOCK_ITEMS,
     source: 'mock'
@@ -191,3 +230,4 @@ export async function getMenuItems() {
   const data = await getBranchMenuData({});
   return data.items;
 }
+
