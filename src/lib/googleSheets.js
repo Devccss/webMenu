@@ -1,117 +1,25 @@
 import Papa from 'papaparse';
 
-// Default Mock Data for immediate visual display if no backend is configured yet
-export const MOCK_CATEGORIES = [
-  { id: 'entradas', name: 'Entradas', icon: '🥟', order: 1 },
-  { id: 'burgers', name: 'Hamburguesas', icon: '🍔', order: 2 },
-  { id: 'postres', name: 'Postres', icon: '🍰', order: 3 },
-  { id: 'bebidas', name: 'Bebidas', icon: '🥤', order: 4 }
-];
-
-export const MOCK_ITEMS = [
-  {
-    id: 'e1',
-    name: 'Papas Rústicas Cheddar',
-    description: 'Papas fritas rústicas crujientes con salsa de queso cheddar fundido, panceta crujiente y cebolla de verdeo picada.',
-    price: 1800,
-    imageUrl: 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=500&auto=format&fit=crop&q=80',
-    categoryId: 'entradas',
-    isRecommended: true,
-    isAvailable: true
-  },
-  {
-    id: 'e2',
-    name: 'Tequeños de Queso',
-    description: '6 bastones de masa crujiente rellenos de queso llanero fundido, acompañados de salsa alioli casera.',
-    price: 1500,
-    imageUrl: 'https://images.unsplash.com/photo-1541532713592-79a0317b6b77?w=500&auto=format&fit=crop&q=80',
-    categoryId: 'entradas',
-    isRecommended: false,
-    isAvailable: true
-  },
-  {
-    id: 'b1',
-    name: 'Doble Cheeseburger',
-    description: 'Dos medallones de carne seleccionada de 120g, doble queso cheddar, cebolla caramelizada y aderezo secreto en pan de papa.',
-    price: 3800,
-    imageUrl: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&auto=format&fit=crop&q=80',
-    categoryId: 'burgers',
-    isRecommended: true,
-    isAvailable: true
-  },
-  {
-    id: 'b2',
-    name: 'Royale Burger',
-    description: 'Medallón de carne 120g, queso cheddar, panceta ahumada, huevo frito, lechuga, tomate y mayonesa casera.',
-    price: 4100,
-    imageUrl: 'https://images.unsplash.com/photo-1550547660-d9450f859349?w=500&auto=format&fit=crop&q=80',
-    categoryId: 'burgers',
-    isRecommended: false,
-    isAvailable: true
-  },
-  {
-    id: 'b3',
-    name: 'Veggie Trufa',
-    description: 'Medallón vegetariano de lentejas y portobello, provolone, champiñones salteados, rúcula y mayonesa de trufa.',
-    price: 3600,
-    imageUrl: 'https://images.unsplash.com/photo-1525059696034-4967a8e1dca2?w=500&auto=format&fit=crop&q=80',
-    categoryId: 'burgers',
-    isRecommended: false,
-    isAvailable: false
-  },
-  {
-    id: 'p1',
-    name: 'Volcán de Chocolate',
-    description: 'Bizcocho tibio de chocolate amargo con centro líquido fundido, acompañado de una bocha de helado de crema americana.',
-    price: 1200,
-    imageUrl: 'https://images.unsplash.com/photo-1606313564200-e75d5e30476c?w=500&auto=format&fit=crop&q=80',
-    categoryId: 'postres',
-    isRecommended: true,
-    isAvailable: true
-  },
-  {
-    id: 'd1',
-    name: 'Limonada de Menta y Jengibre',
-    description: 'Limonada fresca exprimida en el momento con menta fresca, jengibre rallado y almíbar de caña.',
-    price: 800,
-    imageUrl: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=500&auto=format&fit=crop&q=80',
-    categoryId: 'bebidas',
-    isRecommended: false,
-    isAvailable: true
-  },
-  {
-    id: 'd2',
-    name: 'Cerveza Patagonia IPA 24.7',
-    description: 'Pinta tirada helada, una cerveza session IPA aromática con agregado de sauco silvestre.',
-    price: 1100,
-    imageUrl: 'https://images.unsplash.com/photo-1608270586620-248524c67de9?w=500&auto=format&fit=crop&q=80',
-    categoryId: 'bebidas',
-    isRecommended: false,
-    isAvailable: true
-  }
-];
-
 export const DEFAULT_PROFILE = {
-  name: 'Bistró & Co.',
-  subtitle: 'Sabores artesanales • Carta Digital',
+  name: '',
+  subtitle: '',
   logoUrl: '',
-  accentColor: '#e63946',
-  address: 'Av. Principal 1234',
-  phone: '+54 11 4321-5678',
-  whatsapp: '5491143215678',
-  instagram: '@bistroandco',
-  openingHours: 'Lunes a Domingo: 12:00 hs a 00:00 hs'
+  accentColor: '',
+  address: '',
+  phone: '',
+  whatsapp: '',
+  instagram: '',
+  openingHours: ''
 };
 
 /**
  * Obtener datos completos de la sucursal (Perfil, Categorías y Platos) vía Apps Script REST API o CSV Fallback
  */
 export async function getBranchMenuData(branchConfig = {}) {
-  const { appsScriptUrl, spreadsheetId, name: configName } = branchConfig;
+  const { appsScriptUrl, spreadsheetId } = branchConfig;
 
   const baseProfile = {
-    ...DEFAULT_PROFILE,
-    name: configName || DEFAULT_PROFILE.name
+    ...DEFAULT_PROFILE
   };
 
   // 1. Intentar consultar directamente la REST API del Apps Script de la sucursal
@@ -181,8 +89,8 @@ export async function getBranchMenuData(branchConfig = {}) {
 
       return {
         profile,
-        categories: formattedCategories.length > 0 ? formattedCategories : MOCK_CATEGORIES,
-        items: formattedItems.length > 0 ? formattedItems : MOCK_ITEMS,
+        categories: formattedCategories,
+        items: formattedItems,
         source: 'csv'
       };
     } catch (err) {
@@ -190,12 +98,12 @@ export async function getBranchMenuData(branchConfig = {}) {
     }
   }
 
-  // 3. Fallback a Mock Data
+  // 3. Sin datos válidos: devolver estructuras vacías
   return {
     profile: baseProfile,
-    categories: MOCK_CATEGORIES,
-    items: MOCK_ITEMS,
-    source: 'mock'
+    categories: [],
+    items: [],
+    source: 'empty'
   };
 }
 

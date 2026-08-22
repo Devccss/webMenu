@@ -21,6 +21,18 @@
 const DEFAULT_USER = "admin";
 const DEFAULT_PASS = "admin123";
 
+const EMPTY_PROFILE = {
+  name: "",
+  subtitle: "",
+  logoUrl: "",
+  accentColor: "",
+  address: "",
+  phone: "",
+  whatsapp: "",
+  instagram: "",
+  openingHours: ""
+};
+
 /**
  * Manejador GET: Retorna perfil, categorías y platos guardados en este Google Sheet en formato JSON REST
  */
@@ -31,6 +43,19 @@ function doGet(e) {
     const profile = getProfileData(spreadsheet);
     const categories = getCategoriesData(spreadsheet);
     const items = getMenuItemsData(spreadsheet);
+
+    console.log("[AppsScript] doGet", {
+      hasProfileSheet: !!spreadsheet.getSheetByName("Perfil"),
+      profileKeys: Object.keys(profile || {}),
+      categoriesCount: categories.length,
+      itemsCount: items.length
+    });
+    console.log("[AppsScript] doGet response", JSON.stringify({
+      success: true,
+      profileKeys: Object.keys(profile || {}),
+      categoriesCount: categories.length,
+      itemsCount: items.length
+    }));
     
     return createJsonResponse({
       success: true,
@@ -153,18 +178,22 @@ function doPost(e) {
  */
 function getProfileData(spreadsheet) {
   const sheet = spreadsheet.getSheetByName("Perfil");
-  if (!sheet) return {};
+  console.log("[AppsScript] getProfileData - Found 'Perfil' sheet");
+  if (!sheet) return { ...EMPTY_PROFILE };
+  
   
   const values = sheet.getDataRange().getValues();
-  if (values.length <= 1) return {};
+  if (values.length <= 1) return { ...EMPTY_PROFILE };
   
-  const profile = {};
+  const profile = { ...EMPTY_PROFILE };
   
   for (let i = 1; i < values.length; i++) {
     const row = values[i];
     const key = String(row[0] || "").trim();
     if (!key) continue;
-    profile[key] = String(row[1] || "").trim();
+    if (Object.prototype.hasOwnProperty.call(profile, key)) {
+      profile[key] = String(row[1] || "").trim();
+    }
   }
   
   return profile;

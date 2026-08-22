@@ -4,7 +4,7 @@ import { getBranchConfig } from '../lib/branches';
 import '../styles/global.css';
 
 // Obtener sucursal desde los parámetros de URL (?local=centro)
-const localParam = Astro.url.searchParams.get('local') || 'principal';
+const localParam = Astro.url.searchParams.get('local') || '';
 const currentBranch = getBranchConfig(localParam);
 
 // Cargar datos iniciales
