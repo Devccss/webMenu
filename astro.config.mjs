@@ -1,5 +1,6 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
+import netlify from '@astrojs/netlify';
 
 // https://astro.build/config
 export default defineConfig({
@@ -7,4 +8,6 @@ export default defineConfig({
   base: process.env.BASE_PATH || (process.env.GITHUB_REPOSITORY && !process.env.CUSTOM_DOMAIN
     ? `/${process.env.GITHUB_REPOSITORY.split('/')[1]}`
     : undefined),
+
+  adapter: netlify(),
 });
