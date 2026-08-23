@@ -9,5 +9,7 @@ export default defineConfig({
     ? `/${process.env.GITHUB_REPOSITORY.split('/')[1]}`
     : undefined),
 
-  adapter: netlify(),
+  adapter: netlify({
+    middlewareMode: 'edge',
+  }),
 });
