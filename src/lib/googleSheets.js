@@ -17,7 +17,7 @@ export const DEFAULT_PROFILE = {
  */
 export async function getBranchMenuData(branchConfig = {}) {
   const { appsScriptUrl, spreadsheetId } = branchConfig;
-
+  console.log('getBranchMenuData', { appsScriptUrl, spreadsheetId });
   const baseProfile = {
     ...DEFAULT_PROFILE
   };

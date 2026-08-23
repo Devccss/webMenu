@@ -7,26 +7,56 @@
 
 export const DEFAULT_LOCAL_ID = '';
 
+function resolveBranchEnvValues(localId) {
+  switch (String(localId || '').trim().toLowerCase()) {
+    case 'prueba':
+      return {
+        spreadsheetId: import.meta.env.PUBLIC_GOOGLE_SPREADSHEET_ID || import.meta.env.GOOGLE_SPREADSHEET_ID || '',
+        appsScriptUrl: import.meta.env.PUBLIC_GOOGLE_APPS_SCRIPT_URL || import.meta.env.GOOGLE_APPS_SCRIPT_URL || ''
+      };
+    case 'cubano':
+      return {
+        spreadsheetId: import.meta.env.PUBLIC_CAFECUBANO_SPREADSHEET_ID || import.meta.env.CAFECUBANO_SPREADSHEET_ID || '',
+        appsScriptUrl: import.meta.env.PUBLIC_CAFECUBANO_GOOGLE_APPS_SCRIPT_URL || import.meta.env.CAFECUBANO_GOOGLE_APPS_SCRIPT_URL || ''
+      };
+    case 'norte':
+      return {
+        spreadsheetId: import.meta.env.PUBLIC_GOOGLE_SPREADSHEET_ID_NORTE || import.meta.env.GOOGLE_SPREADSHEET_ID_NORTE || '',
+        appsScriptUrl: import.meta.env.PUBLIC_GOOGLE_APPS_SCRIPT_URL_NORTE || import.meta.env.GOOGLE_APPS_SCRIPT_URL_NORTE || ''
+      };
+    default:
+      return {
+        spreadsheetId: '',
+        appsScriptUrl: ''
+      };
+  }
+}
+
 export const LOCATIONS_CONFIG = {
   'prueba': {
     id: 'prueba',
     name: 'Página de Prueba',
-    spreadsheetId: import.meta.env.PUBLIC_GOOGLE_SPREADSHEET_ID || import.meta.env.GOOGLE_SPREADSHEET_ID || '',
-    appsScriptUrl: import.meta.env.PUBLIC_GOOGLE_APPS_SCRIPT_URL || import.meta.env.GOOGLE_APPS_SCRIPT_URL || '',
+    ...resolveBranchEnvValues('prueba'),
   },
   'cubano': {
     id: 'cubano',
     name: 'Cafe Cubano',
-    spreadsheetId: import.meta.env.PUBLIC_CAFECUBANO_SPREADSHEET_ID || import.meta.env.CAFECUBANO_SPREADSHEET_ID || '',
-    appsScriptUrl: import.meta.env.PUBLIC_CAFECUBANO_GOOGLE_APPS_SCRIPT_URL || import.meta.env.CAFECUBANO_GOOGLE_APPS_SCRIPT_URL || '',
+    ...resolveBranchEnvValues('cubano'),
   },
   'norte': {
     id: 'norte',
     name: 'Sucursal Norte',
-    spreadsheetId: import.meta.env.PUBLIC_GOOGLE_SPREADSHEET_ID_NORTE || import.meta.env.GOOGLE_SPREADSHEET_ID_NORTE || '',
-    appsScriptUrl: import.meta.env.PUBLIC_GOOGLE_APPS_SCRIPT_URL_NORTE || import.meta.env.GOOGLE_APPS_SCRIPT_URL_NORTE || '',
+    ...resolveBranchEnvValues('norte'),
   }
 };
+
+export function getBranchAppsScriptUrl(localId) {
+  return resolveBranchEnvValues(localId).appsScriptUrl;
+}
+
+export function getBranchSpreadsheetId(localId) {
+  return resolveBranchEnvValues(localId).spreadsheetId;
+}
 
 
 /**

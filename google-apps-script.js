@@ -17,10 +17,6 @@
  * 9. Esa URL es la que usará el panel y la web pública para esta sucursal.
  */
 
-// Credenciales por defecto si no se definen en Propiedades del Script
-const DEFAULT_USER = "admin";
-const DEFAULT_PASS = "admin123";
-
 const EMPTY_PROFILE = {
   name: "",
   subtitle: "",
@@ -77,99 +73,301 @@ function doGet(e) {
  */
 function doPost(e) {
   try {
+
     if (!e.postData || !e.postData.contents) {
-      return createJsonResponse({ success: false, message: "Petición vacía sin datos." }, 400);
+      return createJsonResponse({
+        success: false,
+        message: "Petición vacía sin datos."
+      });
     }
 
     const payload = JSON.parse(e.postData.contents);
-    
-    // Obtener credenciales de la sucursal
-    const scriptProperties = PropertiesService.getScriptProperties();
-    const secureUser = scriptProperties.getProperty('ADMIN_USER') || DEFAULT_USER;
-    const securePass = scriptProperties.getProperty('ADMIN_PASS') || DEFAULT_PASS;
-    
-    // Validar credenciales
-    if (payload.username !== secureUser || payload.password !== securePass) {
-      return createJsonResponse({ 
-        success: false, 
-        message: "Usuario o contraseña incorrectos para esta sucursal." 
-      }, 401);
-    }
-    
-    const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-    
-    // 1. Guardar Perfil
-    if (payload.profile && typeof payload.profile === 'object') {
-      let sheetProf = spreadsheet.getSheetByName("Perfil");
-      if (!sheetProf) {
-        sheetProf = spreadsheet.insertSheet("Perfil");
-      }
-      sheetProf.clear();
-      sheetProf.getRange(1, 1, 1, 2).setValues([["key", "value"]]);
-      
-      const profileKeys = Object.keys(payload.profile);
-      if (profileKeys.length > 0) {
-        const profRows = profileKeys.map(k => [String(k).trim(), String(payload.profile[k] || "").trim()]);
-        sheetProf.getRange(2, 1, profRows.length, 2).setValues(profRows);
-      }
+
+
+    // ==========================================
+    // OBTENER CREDENCIALES DEL APPS SCRIPT
+    // ==========================================
+
+    const scriptProperties =
+      PropertiesService.getScriptProperties();
+
+    const secureUser =
+      scriptProperties.getProperty("ADMIN_USER") ||
+      DEFAULT_USER;
+
+    const securePass =
+      scriptProperties.getProperty("ADMIN_PASS") ||
+      DEFAULT_PASS;
+
+
+    // ==========================================
+    // VALIDAR CREDENCIALES
+    // ==========================================
+
+    if (
+      payload.username !== secureUser ||
+      payload.password !== securePass
+    ) {
+
+      return createJsonResponse({
+        success: false,
+        message: "Usuario o contraseña incorrectos."
+      });
+
     }
 
-    // 2. Guardar Categorías
-    if (payload.categories && Array.isArray(payload.categories)) {
-      let sheetCat = spreadsheet.getSheetByName("Categorias");
-      if (!sheetCat) {
-        sheetCat = spreadsheet.insertSheet("Categorias");
-      }
-      sheetCat.clear();
-      sheetCat.getRange(1, 1, 1, 4).setValues([["id", "name", "icon", "order"]]);
-      
-      if (payload.categories.length > 0) {
-        const catRows = payload.categories.map(cat => [
-          String(cat.id || "").trim(),
-          String(cat.name || "").trim(),
-          String(cat.icon || "").trim(),
-          parseInt(cat.order) || 99
-        ]);
-        sheetCat.getRange(2, 1, catRows.length, 4).setValues(catRows);
-      }
+
+    // ==========================================
+    // LOGIN
+    // ==========================================
+
+    if (payload.action === "login") {
+
+      return createJsonResponse({
+        success: true,
+        message: "Credenciales correctas."
+      });
+
     }
-    
-    // 3. Guardar Platos
-    if (payload.items && Array.isArray(payload.items)) {
-      let sheetMenu = spreadsheet.getSheetByName("Platos");
-      if (!sheetMenu) {
-        sheetMenu = spreadsheet.insertSheet("Platos");
+
+
+    // ==========================================
+    // GUARDAR DATOS
+    // ==========================================
+
+    if (payload.action === "save") {
+
+      const spreadsheet =
+        SpreadsheetApp.getActiveSpreadsheet();
+
+
+      // ==========================================
+      // GUARDAR PERFIL
+      // ==========================================
+
+      if (
+        payload.profile &&
+        typeof payload.profile === "object" &&
+        !Array.isArray(payload.profile)
+      ) {
+
+        let sheetProf =
+          spreadsheet.getSheetByName("Perfil");
+
+        if (!sheetProf) {
+          sheetProf =
+            spreadsheet.insertSheet("Perfil");
+        }
+
+        sheetProf.clear();
+
+
+        const profileKeys =
+          Object.keys(EMPTY_PROFILE);
+
+
+        const headers =
+          profileKeys.map(key =>
+            String(key).trim()
+          );
+
+
+        const profileValues =
+          profileKeys.map(key =>
+            String(
+              payload.profile[key] || ""
+            ).trim()
+          );
+
+
+        // Fila 1: propiedades
+        sheetProf
+          .getRange(
+            1,
+            1,
+            1,
+            headers.length
+          )
+          .setValues([headers]);
+
+
+        // Fila 2: valores
+        sheetProf
+          .getRange(
+            2,
+            1,
+            1,
+            profileValues.length
+          )
+          .setValues([profileValues]);
+
       }
-      sheetMenu.clear();
-      sheetMenu.getRange(1, 1, 1, 8).setValues([[
-        "id", "name", "description", "price", "imageUrl", "categoryId", "isRecommended", "isAvailable"
-      ]]);
-      
-      if (payload.items.length > 0) {
-        const itemRows = payload.items.map(item => [
-          String(item.id || "").trim(),
-          String(item.name || "").trim(),
-          String(item.description || "").trim(),
-          Number(item.price) || 0,
-          String(item.imageUrl || "").trim(),
-          String(item.categoryId || "").trim(),
-          item.isRecommended ? "true" : "false",
-          item.isAvailable ? "true" : "false"
-        ]);
-        sheetMenu.getRange(2, 1, itemRows.length, 8).setValues(itemRows);
+
+
+      // ==========================================
+      // GUARDAR CATEGORÍAS
+      // ==========================================
+
+      if (
+        payload.categories &&
+        Array.isArray(payload.categories)
+      ) {
+
+        let sheetCat =
+          spreadsheet.getSheetByName("Categorias");
+
+        if (!sheetCat) {
+          sheetCat =
+            spreadsheet.insertSheet("Categorias");
+        }
+
+        sheetCat.clear();
+
+
+        sheetCat
+          .getRange(1, 1, 1, 4)
+          .setValues([[
+            "id",
+            "name",
+            "icon",
+            "order"
+          ]]);
+
+
+        if (payload.categories.length > 0) {
+
+          const catRows =
+            payload.categories.map(cat => [
+
+              String(cat.id || "").trim(),
+
+              String(cat.name || "").trim(),
+
+              String(cat.icon || "").trim(),
+
+              parseInt(cat.order) || 99
+
+            ]);
+
+
+          sheetCat
+            .getRange(
+              2,
+              1,
+              catRows.length,
+              4
+            )
+            .setValues(catRows);
+
+        }
+
       }
+
+
+      // ==========================================
+      // GUARDAR PLATOS
+      // ==========================================
+
+      if (
+        payload.items &&
+        Array.isArray(payload.items)
+      ) {
+
+        let sheetMenu =
+          spreadsheet.getSheetByName("Platos");
+
+        if (!sheetMenu) {
+          sheetMenu =
+            spreadsheet.insertSheet("Platos");
+        }
+
+        sheetMenu.clear();
+
+
+        sheetMenu
+          .getRange(1, 1, 1, 8)
+          .setValues([[
+            "id",
+            "name",
+            "description",
+            "price",
+            "imageUrl",
+            "categoryId",
+            "isRecommended",
+            "isAvailable"
+          ]]);
+
+
+        if (payload.items.length > 0) {
+
+          const itemRows =
+            payload.items.map(item => [
+
+              String(item.id || "").trim(),
+
+              String(item.name || "").trim(),
+
+              String(item.description || "").trim(),
+
+              Number(item.price) || 0,
+
+              String(item.imageUrl || "").trim(),
+
+              String(item.categoryId || "").trim(),
+
+              item.isRecommended
+                ? "true"
+                : "false",
+
+              item.isAvailable
+                ? "true"
+                : "false"
+
+            ]);
+
+
+          sheetMenu
+            .getRange(
+              2,
+              1,
+              itemRows.length,
+              8
+            )
+            .setValues(itemRows);
+
+        }
+
+      }
+
+
+      return createJsonResponse({
+        success: true,
+        message:
+          "Carta y perfil actualizados correctamente."
+      });
+
     }
-    
+
+
+    // ==========================================
+    // ACCIÓN DESCONOCIDA
+    // ==========================================
+
     return createJsonResponse({
-      success: true,
-      message: "Carta y perfil de la sucursal actualizados al instante en Google Sheets."
+      success: false,
+      message: "Acción no válida."
     });
-    
+
+
   } catch (error) {
-    return createJsonResponse({ 
-      success: false, 
-      message: "Excepción en el servidor de Apps Script: " + error.toString() 
-    }, 500);
+
+    return createJsonResponse({
+      success: false,
+      message:
+        "Error en Apps Script: " +
+        error.toString()
+    });
+
   }
 }
 

@@ -1,491 +1,876 @@
 ---
-import { getBranchMenuData } from '../lib/googleSheets';
-import { getBranchConfig } from '../lib/branches';
-import '../styles/global.css';
+export const prerender = false;
+import { getBranchMenuData } from "../lib/googleSheets";
+import { getBranchAppsScriptUrl, getBranchConfig } from "../lib/branches";
+import "../styles/global.css";
 
 // Obtener sucursal desde los parámetros de URL (?local=centro)
-const localParam = Astro.url.searchParams.get('local') || '';
-const currentBranch = getBranchConfig(localParam);
+const localParam = Astro.url.searchParams.get("local") || "";
+const currentBranch = {
+  ...getBranchConfig(localParam),
+  appsScriptUrl:
+    getBranchAppsScriptUrl(localParam) ||
+    getBranchConfig(localParam).appsScriptUrl ||
+    "",
+};
+
+console.log("currentBranch", currentBranch);
 
 // Cargar datos iniciales
-const { profile: initialProfile, categories: initialCategories, items: initialItems } = await getBranchMenuData(currentBranch);
+const {
+  profile: initialProfile,
+  categories: initialCategories,
+  items: initialItems,
+} = await getBranchMenuData(currentBranch);
 ---
 
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Gestión de Carta - {initialProfile.name}</title>
-  <meta name="robots" content="noindex, nofollow" />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚙️</text></svg>">
-</head>
-<body>
-  <div class="container">
-    <!-- Notification Banner -->
-    <div id="toast" class="notification"></div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gestión de Carta - {initialProfile.name}</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚙️</text></svg>"
+    />
+  </head>
+  <body>
+    <div class="container">
+      <!-- Notification Banner -->
+      <div id="toast" class="notification"></div>
 
-    <!-- Login screen -->
-    <div id="login-container" class="admin-login">
-      <h2>Administración de Carta</h2>
-      <p style="text-align: center; color: var(--accent-color); font-weight: 600; margin-top: -0.5rem; margin-bottom: 1.5rem;">
-        📍 {initialProfile.name} ({currentBranch.id})
-      </p>
-
-      <form id="login-form">
-        <div class="form-group">
-          <label for="admin-user">Usuario</label>
-          <input type="text" id="admin-user" required autocomplete="username" placeholder="admin" />
-        </div>
-        <div class="form-group">
-          <label for="admin-pass">Contraseña</label>
-          <input type="password" id="admin-pass" required autocomplete="current-password" placeholder="••••••••" />
-        </div>
-        <button type="submit" class="btn btn-full">Ingresar a {initialProfile.name}</button>
-      </form>
-    </div>
-
-    <!-- Admin Dashboard (Hidden by default) -->
-    <div id="dashboard-container" style="display: none;">
-      <div class="admin-header" style="flex-wrap: wrap; gap: 1rem;">
-        <div>
-          <h1 style="font-size: 1.75rem; margin-bottom: 0.25rem;">Panel de Control</h1>
-          <p class="subtitle" id="dashboard-subtitle" style="text-align: left; color: var(--accent-color); font-weight: 600;">
-            📍 {initialProfile.name} • Gestión REST API
-          </p>
-        </div>
-
-        <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
-          <button id="btn-publish" class="btn">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-            Guardar Cambios Al Instante
-          </button>
-          <button id="btn-logout" class="btn btn-secondary">Salir</button>
-        </div>
-      </div>
-
-      <!-- Configuración URL Apps Script -->
-      <div style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1.5rem;">
-        <label for="custom-apps-script-url" style="font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 0.5rem;">
-          🔗 URL del Web App de Apps Script (Libro de {currentBranch.id}):
-        </label>
-        <input 
-          type="url" 
-          id="custom-apps-script-url" 
-          placeholder="https://script.google.com/macros/s/.../exec"
-          style="width: 100%; background: var(--bg-color); color: var(--text-color); border: 1px solid var(--border-color); padding: 0.5rem; border-radius: var(--radius-sm); font-size: 0.85rem;"
-          value={currentBranch.appsScriptUrl}
-        />
-        <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem;">
-          Pega aquí la URL de la aplicación web que generaste al implementar Google Apps Script en la hoja de esta sucursal.
+      <!-- Login screen -->
+      <div id="login-container" class="admin-login">
+        <h2>Administración de Carta</h2>
+        <p
+          style="text-align: center; color: var(--accent-color); font-weight: 600; margin-top: -0.5rem; margin-bottom: 1.5rem;"
+        >
+          📍 {initialProfile.name} ({currentBranch.id})
         </p>
+
+        <form id="login-form">
+          <div class="form-group">
+            <label for="admin-user">Usuario</label>
+            <input
+              type="text"
+              id="admin-user"
+              required
+              autocomplete="username"
+              placeholder="admin"
+            />
+          </div>
+          <div class="form-group">
+            <label for="admin-pass">Contraseña</label>
+            <input
+              type="password"
+              id="admin-pass"
+              required
+              autocomplete="current-password"
+              placeholder="••••••••"
+            />
+          </div>
+          <button type="submit" class="btn btn-full"
+            >Ingresar a {initialProfile.name}</button
+          >
+        </form>
       </div>
 
-      <!-- Tabs Navigation -->
-      <div class="admin-tabs">
-        <button id="tab-items" class="admin-tab active">Platos</button>
-        <button id="tab-categories" class="admin-tab">Categorías</button>
-        <button id="tab-profile" class="admin-tab">Perfil del Local</button>
-      </div>
+      <!-- Admin Dashboard (Hidden by default) -->
+      <div id="dashboard-container" style="display: none;">
+        <div class="admin-header" style="flex-wrap: wrap; gap: 1rem;">
+          <div>
+            <h1 style="font-size: 1.75rem; margin-bottom: 0.25rem;">
+              Panel de Control
+            </h1>
+            <p
+              class="subtitle"
+              id="dashboard-subtitle"
+              style="text-align: left; color: var(--accent-color); font-weight: 600;"
+            >
+              📍 {initialProfile.name} • Gestión REST API
+            </p>
+          </div>
 
-      <!-- PLATOS TAB PANEL -->
-      <div id="panel-items">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-          <h2 style="font-size: 1.25rem; font-weight: 600; text-transform: uppercase;">Lista de Platos</h2>
-          <button id="btn-add-item" class="btn">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-            Agregar Plato
-          </button>
+          <div
+            style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;"
+          >
+            <button id="btn-publish" class="btn">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                ><path
+                  d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"
+                ></path><polyline points="17 21 17 13 7 13 7 21"
+                ></polyline><polyline points="7 3 7 8 15 8"></polyline></svg
+              >
+              Guardar Cambios Al Instante
+            </button>
+            <button id="btn-logout" class="btn btn-secondary">Salir</button>
+          </div>
         </div>
-        <div id="admin-items-list" class="admin-items-list">
-          <!-- Populated dynamically -->
-        </div>
-      </div>
 
-      <!-- CATEGORIAS TAB PANEL -->
-      <div id="panel-categories" style="display: none;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-          <h2 style="font-size: 1.25rem; font-weight: 600; text-transform: uppercase;">Lista de Categorías</h2>
-          <button id="btn-add-category" class="btn">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-            Agregar Categoría
-          </button>
-        </div>
-        <div id="admin-categories-list" class="admin-items-list">
-          <!-- Populated dynamically -->
-        </div>
-      </div>
-
-      <!-- PERFIL TAB PANEL -->
-      <div id="panel-profile" style="display: none;">
-        <div style="margin-bottom: 1.5rem;">
-          <h2 style="font-size: 1.25rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.5rem;">Perfil y Preferencias de esta Sucursal</h2>
-          <p style="font-size: 0.85rem; color: var(--text-muted);">Estos datos se guardan en la pestaña <strong>Perfil</strong> de tu Google Sheet y personalizan la web de esta sucursal.</p>
+        <div
+          style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1.5rem; font-size: 0.85rem; color: var(--text-muted);"
+        >
+          <strong style="color: var(--text-color);">Conexión automática:</strong
+          > este panel usa la URL configurada para <span id="branch-url-label"
+            >{currentBranch.id}</span
+          > y solo requiere usuario y contraseña.
         </div>
 
-        <form id="form-profile-tab" style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem;">
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
-            <div class="form-group">
-              <label for="prof-name">Nombre del Local</label>
-              <input type="text" id="prof-name" value={initialProfile.name || ''} placeholder="Ej: Bistró Don Juan - Centro" />
-            </div>
+        <!-- Tabs Navigation -->
+        <div class="admin-tabs">
+          <button id="tab-items" class="admin-tab active">Platos</button>
+          <button id="tab-categories" class="admin-tab">Categorías</button>
+          <button id="tab-profile" class="admin-tab">Perfil del Local</button>
+        </div>
 
-            <div class="form-group">
-              <label for="prof-subtitle">Subtítulo / Eslogan</label>
-              <input type="text" id="prof-subtitle" value={initialProfile.subtitle || ''} placeholder="Ej: Sabores artesanales en el centro" />
-            </div>
+        <!-- PLATOS TAB PANEL -->
+        <div id="panel-items">
+          <div
+            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;"
+          >
+            <h2
+              style="font-size: 1.25rem; font-weight: 600; text-transform: uppercase;"
+            >
+              Lista de Platos
+            </h2>
+            <button id="btn-add-item" class="btn">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                ><line x1="12" y1="5" x2="12" y2="19"></line><line
+                  x1="5"
+                  y1="12"
+                  x2="19"
+                  y2="12"></line></svg
+              >
+              Agregar Plato
+            </button>
+          </div>
+          <div id="admin-items-list" class="admin-items-list">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
 
-            <div class="form-group">
-              <label for="prof-logoUrl">URL del Logo (Opcional)</label>
-              <input type="url" id="prof-logoUrl" value={initialProfile.logoUrl || ''} placeholder="https://..." />
-            </div>
+        <!-- CATEGORIAS TAB PANEL -->
+        <div id="panel-categories" style="display: none;">
+          <div
+            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;"
+          >
+            <h2
+              style="font-size: 1.25rem; font-weight: 600; text-transform: uppercase;"
+            >
+              Lista de Categorías
+            </h2>
+            <button id="btn-add-category" class="btn">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                ><line x1="12" y1="5" x2="12" y2="19"></line><line
+                  x1="5"
+                  y1="12"
+                  x2="19"
+                  y2="12"></line></svg
+              >
+              Agregar Categoría
+            </button>
+          </div>
+          <div id="admin-categories-list" class="admin-items-list">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
 
-            <div class="form-group">
-              <label for="prof-accentColor">Color Principal / Marca (Hexadecimal)</label>
-              <div style="display: flex; gap: 0.5rem; align-items: center;">
-                <input type="color" id="prof-accentColor-picker" value={initialProfile.accentColor || '#e63946'} style="width: 40px; height: 38px; border: none; border-radius: var(--radius-sm); cursor: pointer;" />
-                <input type="text" id="prof-accentColor" value={initialProfile.accentColor || '#e63946'} placeholder="#e63946" style="flex: 1;" />
+        <!-- PERFIL TAB PANEL -->
+        <div id="panel-profile" style="display: none;">
+          <div style="margin-bottom: 1.5rem;">
+            <h2
+              style="font-size: 1.25rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.5rem;"
+            >
+              Perfil y Preferencias de esta Sucursal
+            </h2>
+            <p style="font-size: 0.85rem; color: var(--text-muted);">
+              Estos datos se guardan en la pestaña <strong>Perfil</strong> de tu Google
+              Sheet y personalizan la web de esta sucursal.
+            </p>
+          </div>
+
+          <form
+            id="form-profile-tab"
+            style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem;"
+          >
+            <div
+              style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;"
+            >
+              <div class="form-group">
+                <label for="prof-name">Nombre del Local</label>
+                <input
+                  type="text"
+                  id="prof-name"
+                  value={initialProfile.name || ""}
+                  placeholder="Ej: Bistró Don Juan - Centro"
+                />
+              </div>
+
+              <div class="form-group">
+                <label for="prof-subtitle">Subtítulo / Eslogan</label>
+                <input
+                  type="text"
+                  id="prof-subtitle"
+                  value={initialProfile.subtitle || ""}
+                  placeholder="Ej: Sabores artesanales en el centro"
+                />
+              </div>
+
+              <div class="form-group">
+                <label for="prof-logoUrl">URL del Logo (Opcional)</label>
+                <input
+                  type="url"
+                  id="prof-logoUrl"
+                  value={initialProfile.logoUrl || ""}
+                  placeholder="https://..."
+                />
+              </div>
+
+              <div class="form-group">
+                <label for="prof-accentColor"
+                  >Color Principal / Marca (Hexadecimal)</label
+                >
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                  <input
+                    type="color"
+                    id="prof-accentColor-picker"
+                    value={initialProfile.accentColor || "#e63946"}
+                    style="width: 40px; height: 38px; border: none; border-radius: var(--radius-sm); cursor: pointer;"
+                  />
+                  <input
+                    type="text"
+                    id="prof-accentColor"
+                    value={initialProfile.accentColor || "#e63946"}
+                    placeholder="#e63946"
+                    style="flex: 1;"
+                  />
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="prof-address">Dirección Física</label>
+                <input
+                  type="text"
+                  id="prof-address"
+                  value={initialProfile.address || ""}
+                  placeholder="Ej: Av. Corrientes 1234"
+                />
+              </div>
+
+              <div class="form-group">
+                <label for="prof-phone">Teléfono de Contacto</label>
+                <input
+                  type="text"
+                  id="prof-phone"
+                  value={initialProfile.phone || ""}
+                  placeholder="Ej: +54 11 4321-5678"
+                />
+              </div>
+
+              <div class="form-group">
+                <label for="prof-whatsapp"
+                  >Número de WhatsApp (con código de país)</label
+                >
+                <input
+                  type="text"
+                  id="prof-whatsapp"
+                  value={initialProfile.whatsapp || ""}
+                  placeholder="Ej: 5491143215678"
+                />
+              </div>
+
+              <div class="form-group">
+                <label for="prof-openingHours">Horario de Atención</label>
+                <input
+                  type="text"
+                  id="prof-openingHours"
+                  value={initialProfile.openingHours || ""}
+                  placeholder="Ej: Lun a Dom: 12:00 a 00:00"
+                />
               </div>
             </div>
 
-            <div class="form-group">
-              <label for="prof-address">Dirección Física</label>
-              <input type="text" id="prof-address" value={initialProfile.address || ''} placeholder="Ej: Av. Corrientes 1234" />
-            </div>
+            <p
+              style="font-size: 0.8rem; color: var(--accent-color); margin-top: 1rem; font-weight: 500;"
+            >
+              💡 Haz clic en el botón superior "Guardar Cambios Al Instante"
+              para aplicar el perfil a Google Sheets.
+            </p>
+          </form>
+        </div>
+      </div>
+    </div>
 
-            <div class="form-group">
-              <label for="prof-phone">Teléfono de Contacto</label>
-              <input type="text" id="prof-phone" value={initialProfile.phone || ''} placeholder="Ej: +54 11 4321-5678" />
-            </div>
-
-            <div class="form-group">
-              <label for="prof-whatsapp">Número de WhatsApp (con código de país)</label>
-              <input type="text" id="prof-whatsapp" value={initialProfile.whatsapp || ''} placeholder="Ej: 5491143215678" />
-            </div>
-
-            <div class="form-group">
-              <label for="prof-openingHours">Horario de Atención</label>
-              <input type="text" id="prof-openingHours" value={initialProfile.openingHours || ''} placeholder="Ej: Lun a Dom: 12:00 a 00:00" />
-            </div>
+    <!-- MODAL PARA PLATOS -->
+    <div id="modal-item" class="modal-overlay" style="display: none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="modal-item-title">Agregar Plato</h3>
+          <button class="modal-close" id="modal-item-close">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              ><line x1="18" y1="6" x2="6" y2="18"></line><line
+                x1="6"
+                y1="6"
+                x2="18"
+                y2="18"></line></svg
+            >
+          </button>
+        </div>
+        <form id="form-item">
+          <input type="hidden" id="item-form-id" />
+          <div class="form-group">
+            <label for="item-name">Nombre del Plato</label>
+            <input
+              type="text"
+              id="item-name"
+              required
+              placeholder="Ej: Pizza Margarita"
+            />
           </div>
-
-          <p style="font-size: 0.8rem; color: var(--accent-color); margin-top: 1rem; font-weight: 500;">
-            💡 Haz clic en el botón superior "Guardar Cambios Al Instante" para aplicar el perfil a Google Sheets.
-          </p>
+          <div class="form-group">
+            <label for="item-price">Precio ($)</label>
+            <input
+              type="number"
+              id="item-price"
+              required
+              min="0"
+              step="0.01"
+              placeholder="Ej: 1200"
+            />
+          </div>
+          <div class="form-group">
+            <label for="item-category">Categoría</label>
+            <select id="item-category" required>
+              <!-- Populated dynamically -->
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="item-description">Descripción</label>
+            <textarea
+              id="item-description"
+              rows="3"
+              placeholder="Ingredientes, alérgenos, etc."></textarea>
+          </div>
+          <div class="form-group">
+            <label for="item-image">URL de la Imagen</label>
+            <input
+              type="url"
+              id="item-image"
+              placeholder="Ej: https://images.unsplash.com/foto.jpg"
+            />
+          </div>
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="item-recommended" />
+              Recomendado del Chef
+            </label>
+          </div>
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="item-available" checked />
+              Disponible (con stock)
+            </label>
+          </div>
+          <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+            <button type="submit" class="btn" style="flex: 1;">Guardar</button>
+            <button
+              type="button"
+              id="btn-cancel-item"
+              class="btn btn-secondary"
+              style="flex: 1;">Cancelar</button
+            >
+          </div>
         </form>
       </div>
     </div>
-  </div>
 
-  <!-- MODAL PARA PLATOS -->
-  <div id="modal-item" class="modal-overlay" style="display: none;">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3 id="modal-item-title">Agregar Plato</h3>
-        <button class="modal-close" id="modal-item-close">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-        </button>
+    <!-- MODAL PARA CATEGORIAS -->
+    <div id="modal-category" class="modal-overlay" style="display: none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="modal-category-title">Agregar Categoría</h3>
+          <button class="modal-close" id="modal-category-close">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              ><line x1="18" y1="6" x2="6" y2="18"></line><line
+                x1="6"
+                y1="6"
+                x2="18"
+                y2="18"></line></svg
+            >
+          </button>
+        </div>
+        <form id="form-category">
+          <input type="hidden" id="category-form-mode" value="add" />
+          <div class="form-group">
+            <label for="category-id"
+              >ID de Categoría (Código único minúsculas)</label
+            >
+            <input
+              type="text"
+              id="category-id"
+              required
+              placeholder="Ej: pizzas"
+            />
+          </div>
+          <div class="form-group">
+            <label for="category-name">Nombre de Categoría</label>
+            <input
+              type="text"
+              id="category-name"
+              required
+              placeholder="Ej: Pizzas A la Piedra"
+            />
+          </div>
+          <div class="form-group">
+            <label for="category-icon">Emoji de Categoría</label>
+            <input
+              type="text"
+              id="category-icon"
+              required
+              placeholder="Ej: 🍕"
+              maxlength="4"
+            />
+          </div>
+          <div class="form-group">
+            <label for="category-order">Orden de visualización</label>
+            <input
+              type="number"
+              id="category-order"
+              required
+              min="1"
+              placeholder="Ej: 1"
+            />
+          </div>
+          <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+            <button type="submit" class="btn" style="flex: 1;">Guardar</button>
+            <button
+              type="button"
+              id="btn-cancel-category"
+              class="btn btn-secondary"
+              style="flex: 1;">Cancelar</button
+            >
+          </div>
+        </form>
       </div>
-      <form id="form-item">
-        <input type="hidden" id="item-form-id" />
-        <div class="form-group">
-          <label for="item-name">Nombre del Plato</label>
-          <input type="text" id="item-name" required placeholder="Ej: Pizza Margarita" />
-        </div>
-        <div class="form-group">
-          <label for="item-price">Precio ($)</label>
-          <input type="number" id="item-price" required min="0" step="0.01" placeholder="Ej: 1200" />
-        </div>
-        <div class="form-group">
-          <label for="item-category">Categoría</label>
-          <select id="item-category" required>
-            <!-- Populated dynamically -->
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="item-description">Descripción</label>
-          <textarea id="item-description" rows="3" placeholder="Ingredientes, alérgenos, etc."></textarea>
-        </div>
-        <div class="form-group">
-          <label for="item-image">URL de la Imagen</label>
-          <input type="url" id="item-image" placeholder="Ej: https://images.unsplash.com/foto.jpg" />
-        </div>
-        <div class="form-group">
-          <label class="checkbox-label">
-            <input type="checkbox" id="item-recommended" />
-            Recomendado del Chef
-          </label>
-        </div>
-        <div class="form-group">
-          <label class="checkbox-label">
-            <input type="checkbox" id="item-available" checked />
-            Disponible (con stock)
-          </label>
-        </div>
-        <div style="display: flex; gap: 1rem; margin-top: 2rem;">
-          <button type="submit" class="btn" style="flex: 1;">Guardar</button>
-          <button type="button" id="btn-cancel-item" class="btn btn-secondary" style="flex: 1;">Cancelar</button>
-        </div>
-      </form>
     </div>
-  </div>
 
-  <!-- MODAL PARA CATEGORIAS -->
-  <div id="modal-category" class="modal-overlay" style="display: none;">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3 id="modal-category-title">Agregar Categoría</h3>
-        <button class="modal-close" id="modal-category-close">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-        </button>
-      </div>
-      <form id="form-category">
-        <input type="hidden" id="category-form-mode" value="add" />
-        <div class="form-group">
-          <label for="category-id">ID de Categoría (Código único minúsculas)</label>
-          <input type="text" id="category-id" required placeholder="Ej: pizzas" />
-        </div>
-        <div class="form-group">
-          <label for="category-name">Nombre de Categoría</label>
-          <input type="text" id="category-name" required placeholder="Ej: Pizzas A la Piedra" />
-        </div>
-        <div class="form-group">
-          <label for="category-icon">Emoji de Categoría</label>
-          <input type="text" id="category-icon" required placeholder="Ej: 🍕" maxlength="4" />
-        </div>
-        <div class="form-group">
-          <label for="category-order">Orden de visualización</label>
-          <input type="number" id="category-order" required min="1" placeholder="Ej: 1" />
-        </div>
-        <div style="display: flex; gap: 1rem; margin-top: 2rem;">
-          <button type="submit" class="btn" style="flex: 1;">Guardar</button>
-          <button type="button" id="btn-cancel-category" class="btn btn-secondary" style="flex: 1;">Cancelar</button>
-        </div>
-      </form>
-    </div>
-  </div>
+    <script
+      is:inline
+      define:vars={{
+        initialProfile,
+        initialCategories,
+        initialItems,
+        currentBranch,
+      }}
+    >
+      // State
+      let profile = { ...initialProfile };
+      let categories = [...initialCategories];
+      let items = [...initialItems];
+      let isEditingItem = false;
+      let isEditingCategory = false;
+      let adminToken = { user: "", pass: "" };
 
-  <script is:inline define:vars={{ initialProfile, initialCategories, initialItems, currentBranch }}>
-    // State
-    let profile = { ...initialProfile };
-    let categories = [...initialCategories];
-    let items = [...initialItems];
-    let isEditingItem = false;
-    let isEditingCategory = false;
-    let adminToken = { user: '', pass: '' };
+      // DOM Elements
+      const loginContainer = document.getElementById("login-container");
+      const dashboardContainer = document.getElementById("dashboard-container");
+      const panelItems = document.getElementById("panel-items");
+      const panelCategories = document.getElementById("panel-categories");
+      const panelProfile = document.getElementById("panel-profile");
+      const itemsListContainer = document.getElementById("admin-items-list");
+      const categoriesListContainer = document.getElementById(
+        "admin-categories-list",
+      );
+      const modalItem = document.getElementById("modal-item");
+      const modalCategory = document.getElementById("modal-category");
+      const loginForm = document.getElementById("login-form");
+      const formItem = document.getElementById("form-item");
+      const formCategory = document.getElementById("form-category");
+      const toastEl = document.getElementById("toast");
 
-    // DOM Elements
-    const loginContainer = document.getElementById('login-container');
-    const dashboardContainer = document.getElementById('dashboard-container');
-    const panelItems = document.getElementById('panel-items');
-    const panelCategories = document.getElementById('panel-categories');
-    const panelProfile = document.getElementById('panel-profile');
-    const itemsListContainer = document.getElementById('admin-items-list');
-    const categoriesListContainer = document.getElementById('admin-categories-list');
-    const modalItem = document.getElementById('modal-item');
-    const modalCategory = document.getElementById('modal-category');
-    const loginForm = document.getElementById('login-form');
-    const formItem = document.getElementById('form-item');
-    const formCategory = document.getElementById('form-category');
-    const toastEl = document.getElementById('toast');
-    const urlInput = document.getElementById('custom-apps-script-url');
-
-    function showToast(message, type = 'success') {
-      toastEl.textContent = message;
-      toastEl.className = `notification show ${type}`;
-      setTimeout(() => { toastEl.className = `notification ${type}`; }, 4000);
-    }
-
-    // Color picker sync
-    const picker = document.getElementById('prof-accentColor-picker');
-    const hexInput = document.getElementById('prof-accentColor');
-    if (picker && hexInput) {
-      picker.addEventListener('input', (e) => { hexInput.value = e.target.value; });
-      hexInput.addEventListener('input', (e) => { picker.value = e.target.value; });
-    }
-
-    // Fill profile fields from state
-    function syncProfileFieldsToUI() {
-      if (!profile) return;
-      if (document.getElementById('prof-name')) document.getElementById('prof-name').value = profile.name || '';
-      if (document.getElementById('prof-subtitle')) document.getElementById('prof-subtitle').value = profile.subtitle || '';
-      if (document.getElementById('prof-logoUrl')) document.getElementById('prof-logoUrl').value = profile.logoUrl || '';
-      if (document.getElementById('prof-accentColor')) document.getElementById('prof-accentColor').value = profile.accentColor || '#e63946';
-      if (document.getElementById('prof-accentColor-picker')) document.getElementById('prof-accentColor-picker').value = profile.accentColor || '#e63946';
-      if (document.getElementById('prof-address')) document.getElementById('prof-address').value = profile.address || '';
-      if (document.getElementById('prof-phone')) document.getElementById('prof-phone').value = profile.phone || '';
-      if (document.getElementById('prof-whatsapp')) document.getElementById('prof-whatsapp').value = profile.whatsapp || '';
-      if (document.getElementById('prof-openingHours')) document.getElementById('prof-openingHours').value = profile.openingHours || '';
-
-      const dashSub = document.getElementById('dashboard-subtitle');
-      if (dashSub) dashSub.textContent = `📍 ${profile.name || currentBranch.name} • Gestión REST API`;
-    }
-
-    function collectProfileFromUI() {
-      return {
-        name: document.getElementById('prof-name')?.value.trim() || '',
-        subtitle: document.getElementById('prof-subtitle')?.value.trim() || '',
-        logoUrl: document.getElementById('prof-logoUrl')?.value.trim() || '',
-        accentColor: document.getElementById('prof-accentColor')?.value.trim() || '#e63946',
-        address: document.getElementById('prof-address')?.value.trim() || '',
-        phone: document.getElementById('prof-phone')?.value.trim() || '',
-        whatsapp: document.getElementById('prof-whatsapp')?.value.trim() || '',
-        openingHours: document.getElementById('prof-openingHours')?.value.trim() || ''
-      };
-    }
-
-    // Check active session
-    const sessionKey = `admin_session_${currentBranch.id}`;
-    const session = sessionStorage.getItem(sessionKey);
-    if (session) {
-      try {
-        adminToken = JSON.parse(session);
-        loginContainer.style.display = 'none';
-        dashboardContainer.style.display = 'block';
-        fetchBranchDataViaApi();
-      } catch(e) {
-        sessionStorage.removeItem(sessionKey);
+      function showToast(message, type = "success") {
+        toastEl.textContent = message;
+        toastEl.className = `notification show ${type}`;
+        setTimeout(() => {
+          toastEl.className = `notification ${type}`;
+        }, 4000);
       }
-    }
 
-    // Login Form
-    loginForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const user = document.getElementById('admin-user').value.trim();
-      const pass = document.getElementById('admin-pass').value.trim();
-      
-      adminToken = { user, pass };
-      sessionStorage.setItem(sessionKey, JSON.stringify(adminToken));
-      
-      loginContainer.style.display = 'none';
-      dashboardContainer.style.display = 'block';
-      showToast(`Sesión iniciada en ${currentBranch.name}`, 'success');
-      
-      fetchBranchDataViaApi();
-    });
+      // Color picker sync
+      const picker = document.getElementById("prof-accentColor-picker");
+      const hexInput = document.getElementById("prof-accentColor");
+      if (picker && hexInput) {
+        picker.addEventListener("input", (e) => {
+          hexInput.value = e.target.value;
+        });
+        hexInput.addEventListener("input", (e) => {
+          picker.value = e.target.value;
+        });
+      }
 
-    // Logout
-    document.getElementById('btn-logout').addEventListener('click', () => {
-      sessionStorage.removeItem(sessionKey);
-      adminToken = { user: '', pass: '' };
-      loginContainer.style.display = 'block';
-      dashboardContainer.style.display = 'none';
-      showToast('Sesión cerrada', 'success');
-    });
+      // Fill profile fields from state
+      function syncProfileFieldsToUI() {
+        if (!profile) return;
+        if (document.getElementById("prof-name"))
+          document.getElementById("prof-name").value = profile.name || "";
+        if (document.getElementById("prof-subtitle"))
+          document.getElementById("prof-subtitle").value =
+            profile.subtitle || "";
+        if (document.getElementById("prof-logoUrl"))
+          document.getElementById("prof-logoUrl").value = profile.logoUrl || "";
+        if (document.getElementById("prof-accentColor"))
+          document.getElementById("prof-accentColor").value =
+            profile.accentColor || "#e63946";
+        if (document.getElementById("prof-accentColor-picker"))
+          document.getElementById("prof-accentColor-picker").value =
+            profile.accentColor || "#e63946";
+        if (document.getElementById("prof-address"))
+          document.getElementById("prof-address").value = profile.address || "";
+        if (document.getElementById("prof-phone"))
+          document.getElementById("prof-phone").value = profile.phone || "";
+        if (document.getElementById("prof-whatsapp"))
+          document.getElementById("prof-whatsapp").value =
+            profile.whatsapp || "";
+        if (document.getElementById("prof-openingHours"))
+          document.getElementById("prof-openingHours").value =
+            profile.openingHours || "";
 
-    // Fetch Latest Data via Apps Script REST API
-    async function fetchBranchDataViaApi() {
-      const targetUrl = urlInput.value.trim() || currentBranch.appsScriptUrl;
-      if (!targetUrl) {
-        showToast('Utilizando datos locales precompilados. Configura la URL de Apps Script arriba.', 'error');
+        const dashSub = document.getElementById("dashboard-subtitle");
+        if (dashSub)
+          dashSub.textContent = `📍 ${profile.name || currentBranch.name} • Gestión REST API`;
+
+        const branchUrlLabel = document.getElementById("branch-url-label");
+        if (branchUrlLabel)
+          branchUrlLabel.textContent = currentBranch.id || "local";
+      }
+
+      function collectProfileFromUI() {
+        return {
+          name: document.getElementById("prof-name")?.value.trim() || "",
+          subtitle:
+            document.getElementById("prof-subtitle")?.value.trim() || "",
+          logoUrl: document.getElementById("prof-logoUrl")?.value.trim() || "",
+          accentColor:
+            document.getElementById("prof-accentColor")?.value.trim() ||
+            "#e63946",
+          address: document.getElementById("prof-address")?.value.trim() || "",
+          phone: document.getElementById("prof-phone")?.value.trim() || "",
+          whatsapp:
+            document.getElementById("prof-whatsapp")?.value.trim() || "",
+          openingHours:
+            document.getElementById("prof-openingHours")?.value.trim() || "",
+        };
+      }
+
+      // Check active session
+      const sessionKey = `admin_session_${currentBranch.id}`;
+      const session = sessionStorage.getItem(sessionKey);
+      if (session) {
+        try {
+          adminToken = JSON.parse(session);
+          loginContainer.style.display = "none";
+          dashboardContainer.style.display = "block";
+          fetchBranchDataViaApi();
+        } catch (e) {
+          sessionStorage.removeItem(sessionKey);
+        }
+      }
+
+      // Login Form
+      loginForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const user = document.getElementById("admin-user").value.trim();
+
+        const pass = document.getElementById("admin-pass").value.trim();
+
+        const targetUrl = currentBranch.appsScriptUrl;
+
+        // Verificar que exista la URL de Apps Script
+        if (!targetUrl) {
+          showToast(
+            "Error: este local no tiene URL de Apps Script configurada.",
+            "error",
+          );
+
+          return;
+        }
+
+        // Obtener el botón para bloquearlo mientras
+        // se realiza la petición.
+        const submitButton = loginForm.querySelector('button[type="submit"]');
+
+        const originalText = submitButton.textContent;
+
+        // Desactivar botón mientras validamos.
+        submitButton.disabled = true;
+
+        submitButton.textContent = "Verificando credenciales...";
+
+        try {
+          // ==========================================
+          // ENVIAR CREDENCIALES A APPS SCRIPT
+          // ==========================================
+
+          const response = await fetch(targetUrl, {
+            method: "POST",
+
+            mode: "cors",
+
+            headers: {
+              "Content-Type": "text/plain;charset=utf-8",
+            },
+
+            body: JSON.stringify({
+              action: "login",
+
+              username: user,
+
+              password: pass,
+            }),
+          });
+
+          const result = await response.json();
+
+          // ==========================================
+          // CREDENCIALES INCORRECTAS
+          // ==========================================
+
+          if (!result.success) {
+            showToast(
+              result.message || "Usuario o contraseña incorrectos.",
+              "error",
+            );
+
+            document.getElementById("admin-pass").value = "";
+
+            return;
+          }
+
+          // ==========================================
+          // LOGIN CORRECTO
+          // ==========================================
+
+          adminToken = {
+            user,
+            pass,
+          };
+
+          // Guardamos la sesión solamente después
+          // de que Apps Script confirmó las credenciales.
+          sessionStorage.setItem(sessionKey, JSON.stringify(adminToken));
+
+          // Ocultar login.
+          loginContainer.style.display = "none";
+
+          // Mostrar panel.
+          dashboardContainer.style.display = "block";
+
+          showToast(`Sesión iniciada en ${currentBranch.name}`, "success");
+
+          // Cargar datos actualizados.
+          fetchBranchDataViaApi();
+        } catch (error) {
+          console.error("Error al validar credenciales:", error);
+
+          showToast(
+            "No se pudo conectar con el servidor de autenticación.",
+            "error",
+          );
+        } finally {
+          // Restaurar botón siempre.
+          submitButton.disabled = false;
+
+          submitButton.textContent = originalText;
+        }
+      });
+
+      // Logout
+      document.getElementById("btn-logout").addEventListener("click", () => {
+        sessionStorage.removeItem(sessionKey);
+        adminToken = { user: "", pass: "" };
+        loginContainer.style.display = "block";
+        dashboardContainer.style.display = "none";
+        showToast("Sesión cerrada", "success");
+      });
+
+      // Fetch Latest Data via Apps Script REST API
+      async function fetchBranchDataViaApi() {
+        const targetUrl = currentBranch.appsScriptUrl;
+        if (!targetUrl) {
+          showToast(
+            "Este local no tiene URL de Apps Script configurada en el .env.",
+            "error",
+          );
+          return;
+        }
+
+        showToast(`Cargando datos REST de ${currentBranch.name}...`, "success");
+
+        try {
+          const response = await fetch(targetUrl);
+          if (response.ok) {
+            const data = await response.json();
+            if (data && data.success) {
+              if (data.profile) profile = { ...profile, ...data.profile };
+              if (Array.isArray(data.categories) && data.categories.length > 0)
+                categories = data.categories;
+              if (Array.isArray(data.items) && data.items.length > 0)
+                items = data.items;
+              showToast(
+                "Datos más recientes cargados desde Apps Script REST API",
+                "success",
+              );
+            }
+          }
+        } catch (err) {
+          console.error(
+            "Error al conectar con la REST API de Apps Script:",
+            err,
+          );
+          showToast(
+            "No se pudo conectar a Apps Script REST API. Usando datos precargados.",
+            "error",
+          );
+        }
+
         renderItems();
         renderCategories();
         syncProfileFieldsToUI();
-        return;
       }
 
-      showToast(`Cargando datos REST de ${currentBranch.name}...`, 'success');
+      // Tab Navigation
+      const tabItems = document.getElementById("tab-items");
+      const tabCategories = document.getElementById("tab-categories");
+      const tabProfile = document.getElementById("tab-profile");
 
-      try {
-        const response = await fetch(targetUrl);
-        if (response.ok) {
-          const data = await response.json();
-          if (data && data.success) {
-            if (data.profile) profile = { ...profile, ...data.profile };
-            if (Array.isArray(data.categories) && data.categories.length > 0) categories = data.categories;
-            if (Array.isArray(data.items) && data.items.length > 0) items = data.items;
-            showToast('Datos más recientes cargados desde Apps Script REST API', 'success');
-          }
+      tabItems.addEventListener("click", () => {
+        tabItems.classList.add("active");
+        tabCategories.classList.remove("active");
+        tabProfile.classList.remove("active");
+        panelItems.style.display = "block";
+        panelCategories.style.display = "none";
+        panelProfile.style.display = "none";
+      });
+
+      tabCategories.addEventListener("click", () => {
+        tabCategories.classList.add("active");
+        tabItems.classList.remove("active");
+        tabProfile.classList.remove("active");
+        panelCategories.style.display = "block";
+        panelItems.style.display = "none";
+        panelProfile.style.display = "none";
+      });
+
+      tabProfile.addEventListener("click", () => {
+        tabProfile.classList.add("active");
+        tabItems.classList.remove("active");
+        tabCategories.classList.remove("active");
+        panelProfile.style.display = "block";
+        panelItems.style.display = "none";
+        panelCategories.style.display = "none";
+      });
+
+      // Render Items
+      function renderItems() {
+        itemsListContainer.innerHTML = "";
+        if (items.length === 0) {
+          itemsListContainer.innerHTML =
+            '<div style="text-align: center; color: var(--text-muted); padding: 2rem;">No hay platos creados aún en esta sucursal.</div>';
+          return;
         }
-      } catch (err) {
-        console.error('Error al conectar con la REST API de Apps Script:', err);
-        showToast('No se pudo conectar a Apps Script REST API. Usando datos precargados.', 'error');
-      }
 
-      renderItems();
-      renderCategories();
-      syncProfileFieldsToUI();
-    }
+        items.forEach((item) => {
+          const cat = categories.find((c) => c.id === item.categoryId);
+          const catName = cat ? cat.name : item.categoryId;
 
-    // Tab Navigation
-    const tabItems = document.getElementById('tab-items');
-    const tabCategories = document.getElementById('tab-categories');
-    const tabProfile = document.getElementById('tab-profile');
-
-    tabItems.addEventListener('click', () => {
-      tabItems.classList.add('active');
-      tabCategories.classList.remove('active');
-      tabProfile.classList.remove('active');
-      panelItems.style.display = 'block';
-      panelCategories.style.display = 'none';
-      panelProfile.style.display = 'none';
-    });
-
-    tabCategories.addEventListener('click', () => {
-      tabCategories.classList.add('active');
-      tabItems.classList.remove('active');
-      tabProfile.classList.remove('active');
-      panelCategories.style.display = 'block';
-      panelItems.style.display = 'none';
-      panelProfile.style.display = 'none';
-    });
-
-    tabProfile.addEventListener('click', () => {
-      tabProfile.classList.add('active');
-      tabItems.classList.remove('active');
-      tabCategories.classList.remove('active');
-      panelProfile.style.display = 'block';
-      panelItems.style.display = 'none';
-      panelCategories.style.display = 'none';
-    });
-
-    // Render Items
-    function renderItems() {
-      itemsListContainer.innerHTML = '';
-      if (items.length === 0) {
-        itemsListContainer.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 2rem;">No hay platos creados aún en esta sucursal.</div>';
-        return;
-      }
-
-      items.forEach(item => {
-        const cat = categories.find(c => c.id === item.categoryId);
-        const catName = cat ? cat.name : item.categoryId;
-        
-        const row = document.createElement('div');
-        row.className = 'admin-item-row';
-        row.innerHTML = `
+          const row = document.createElement("div");
+          row.className = "admin-item-row";
+          row.innerHTML = `
           <div class="admin-item-details">
-            <span class="admin-item-name">${item.name} ${item.isRecommended ? '⭐' : ''}</span>
-            <span class="admin-item-meta">${catName} • $${Number(item.price).toLocaleString('es-AR')} • ${item.isAvailable ? '<span style="color: var(--success-color)">En Stock</span>' : '<span style="color: var(--danger-color)">Sin Stock</span>'}</span>
+            <span class="admin-item-name">${item.name} ${item.isRecommended ? "⭐" : ""}</span>
+            <span class="admin-item-meta">${catName} • $${Number(item.price).toLocaleString("es-AR")} • ${item.isAvailable ? '<span style="color: var(--success-color)">En Stock</span>' : '<span style="color: var(--danger-color)">Sin Stock</span>'}</span>
           </div>
           <div class="admin-item-actions">
             <button class="btn btn-secondary btn-edit" data-id="${item.id}">Editar</button>
             <button class="btn btn-danger btn-delete" data-id="${item.id}">Eliminar</button>
           </div>
         `;
-        itemsListContainer.appendChild(row);
-      });
+          itemsListContainer.appendChild(row);
+        });
 
-      itemsListContainer.querySelectorAll('.btn-edit').forEach(btn => {
-        btn.addEventListener('click', () => openItemModal(btn.getAttribute('data-id')));
-      });
-      itemsListContainer.querySelectorAll('.btn-delete').forEach(btn => {
-        btn.addEventListener('click', () => deleteItem(btn.getAttribute('data-id')));
-      });
-    }
-
-    // Render Categories
-    function renderCategories() {
-      categoriesListContainer.innerHTML = '';
-      if (categories.length === 0) {
-        categoriesListContainer.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 2rem;">No hay categorías creadas aún.</div>';
-        return;
+        itemsListContainer.querySelectorAll(".btn-edit").forEach((btn) => {
+          btn.addEventListener("click", () =>
+            openItemModal(btn.getAttribute("data-id")),
+          );
+        });
+        itemsListContainer.querySelectorAll(".btn-delete").forEach((btn) => {
+          btn.addEventListener("click", () =>
+            deleteItem(btn.getAttribute("data-id")),
+          );
+        });
       }
 
-      categories.forEach(cat => {
-        const row = document.createElement('div');
-        row.className = 'admin-item-row';
-        row.innerHTML = `
+      // Render Categories
+      function renderCategories() {
+        categoriesListContainer.innerHTML = "";
+        if (categories.length === 0) {
+          categoriesListContainer.innerHTML =
+            '<div style="text-align: center; color: var(--text-muted); padding: 2rem;">No hay categorías creadas aún.</div>';
+          return;
+        }
+
+        categories.forEach((cat) => {
+          const row = document.createElement("div");
+          row.className = "admin-item-row";
+          row.innerHTML = `
           <div class="admin-item-details">
             <span class="admin-item-name">${cat.icon} ${cat.name}</span>
             <span class="admin-item-meta">ID: ${cat.id} • Orden: ${cat.order}</span>
@@ -495,218 +880,295 @@ const { profile: initialProfile, categories: initialCategories, items: initialIt
             <button class="btn btn-danger btn-delete-cat" data-id="${cat.id}">Eliminar</button>
           </div>
         `;
-        categoriesListContainer.appendChild(row);
-      });
+          categoriesListContainer.appendChild(row);
+        });
 
-      categoriesListContainer.querySelectorAll('.btn-edit-cat').forEach(btn => {
-        btn.addEventListener('click', () => openCategoryModal(btn.getAttribute('data-id')));
-      });
-      categoriesListContainer.querySelectorAll('.btn-delete-cat').forEach(btn => {
-        btn.addEventListener('click', () => deleteCategory(btn.getAttribute('data-id')));
-      });
-
-      const itemCategorySelect = document.getElementById('item-category');
-      itemCategorySelect.innerHTML = categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
-    }
-
-    // Item Modals
-    const btnAddItem = document.getElementById('btn-add-item');
-    const modalItemClose = document.getElementById('modal-item-close');
-    const btnCancelItem = document.getElementById('btn-cancel-item');
-
-    function openItemModal(id = null) {
-      if (categories.length === 0) {
-        showToast('Crea al menos una categoría primero.', 'error');
-        return;
-      }
-      modalItem.style.display = 'flex';
-      if (id) {
-        const item = items.find(i => i.id === id);
-        if (!item) return;
-        isEditingItem = true;
-        document.getElementById('modal-item-title').textContent = 'Editar Plato';
-        document.getElementById('item-form-id').value = item.id;
-        document.getElementById('item-name').value = item.name;
-        document.getElementById('item-price').value = item.price;
-        document.getElementById('item-category').value = item.categoryId;
-        document.getElementById('item-description').value = item.description;
-        document.getElementById('item-image').value = item.imageUrl || '';
-        document.getElementById('item-recommended').checked = item.isRecommended;
-        document.getElementById('item-available').checked = item.isAvailable;
-      } else {
-        isEditingItem = false;
-        document.getElementById('modal-item-title').textContent = 'Agregar Plato';
-        formItem.reset();
-        document.getElementById('item-form-id').value = '';
-        document.getElementById('item-available').checked = true;
-      }
-    }
-    function closeItemModal() { modalItem.style.display = 'none'; formItem.reset(); }
-    btnAddItem.addEventListener('click', () => openItemModal());
-    modalItemClose.addEventListener('click', closeItemModal);
-    btnCancelItem.addEventListener('click', closeItemModal);
-
-    formItem.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const id = document.getElementById('item-form-id').value || 'item-' + Date.now();
-      const name = document.getElementById('item-name').value.trim();
-      const price = parseFloat(document.getElementById('item-price').value) || 0;
-      const categoryId = document.getElementById('item-category').value;
-      const description = document.getElementById('item-description').value.trim();
-      const imageUrl = document.getElementById('item-image').value.trim();
-      const isRecommended = document.getElementById('item-recommended').checked;
-      const isAvailable = document.getElementById('item-available').checked;
-
-      const itemData = { id, name, price, categoryId, description, imageUrl, isRecommended, isAvailable };
-
-      if (isEditingItem) {
-        items = items.map(i => i.id === id ? itemData : i);
-        showToast('Plato modificado (clic en Guardar Cambios para aplicar)', 'success');
-      } else {
-        items.push(itemData);
-        showToast('Plato añadido (clic en Guardar Cambios para aplicar)', 'success');
-      }
-      closeItemModal();
-      renderItems();
-    });
-
-    function deleteItem(id) {
-      if (confirm('¿Eliminar este plato?')) {
-        items = items.filter(i => i.id !== id);
-        renderItems();
-        showToast('Plato eliminado (clic en Guardar Cambios para aplicar)', 'success');
-      }
-    }
-
-    // Category Modals
-    const btnAddCategory = document.getElementById('btn-add-category');
-    const modalCategoryClose = document.getElementById('modal-category-close');
-    const btnCancelCategory = document.getElementById('btn-cancel-category');
-
-    function openCategoryModal(id = null) {
-      modalCategory.style.display = 'flex';
-      if (id) {
-        const cat = categories.find(c => c.id === id);
-        if (!cat) return;
-        isEditingCategory = true;
-        document.getElementById('modal-category-title').textContent = 'Editar Categoría';
-        document.getElementById('category-form-mode').value = 'edit';
-        document.getElementById('category-id').value = cat.id;
-        document.getElementById('category-id').readOnly = true;
-        document.getElementById('category-name').value = cat.name;
-        document.getElementById('category-icon').value = cat.icon;
-        document.getElementById('category-order').value = cat.order;
-      } else {
-        isEditingCategory = false;
-        document.getElementById('modal-category-title').textContent = 'Agregar Categoría';
-        document.getElementById('category-form-mode').value = 'add';
-        formCategory.reset();
-        document.getElementById('category-id').readOnly = false;
-      }
-    }
-    function closeCategoryModal() { modalCategory.style.display = 'none'; formCategory.reset(); }
-    btnAddCategory.addEventListener('click', () => openCategoryModal());
-    modalCategoryClose.addEventListener('click', closeCategoryModal);
-    btnCancelCategory.addEventListener('click', closeCategoryModal);
-
-    formCategory.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const id = document.getElementById('category-id').value.trim().toLowerCase();
-      const name = document.getElementById('category-name').value.trim();
-      const icon = document.getElementById('category-icon').value.trim();
-      const order = parseInt(document.getElementById('category-order').value) || 99;
-
-      const catData = { id, name, icon, order };
-      const mode = document.getElementById('category-form-mode').value;
-
-      if (mode === 'edit') {
-        categories = categories.map(c => c.id === id ? catData : c).sort((a, b) => a.order - b.order);
-        showToast('Categoría modificada (clic en Guardar Cambios para aplicar)', 'success');
-      } else {
-        if (categories.some(c => c.id === id)) {
-          showToast('El ID de categoría ya existe.', 'error');
-          return;
-        }
-        categories.push(catData);
-        categories.sort((a, b) => a.order - b.order);
-        showToast('Categoría añadida (clic en Guardar Cambios para aplicar)', 'success');
-      }
-      closeCategoryModal();
-      renderCategories();
-    });
-
-    function deleteCategory(id) {
-      if (items.some(item => item.categoryId === id)) {
-        showToast('No puedes eliminar la categoría porque contiene platos.', 'error');
-        return;
-      }
-      if (confirm('¿Eliminar esta categoría?')) {
-        categories = categories.filter(c => c.id !== id);
-        renderCategories();
-        showToast('Categoría eliminada (clic en Guardar Cambios para aplicar)', 'success');
-      }
-    }
-
-    // Save & Publish instantly via Apps Script REST API
-    const btnPublish = document.getElementById('btn-publish');
-    btnPublish.addEventListener('click', async () => {
-      const targetUrl = urlInput.value.trim() || currentBranch.appsScriptUrl;
-
-      if (!targetUrl) {
-        showToast('Error: Debes ingresar la URL de la aplicación web de Apps Script para esta sucursal arriba.', 'error');
-        return;
-      }
-
-      profile = collectProfileFromUI();
-
-      if (confirm(`¿Guardar los cambios en el libro de la sucursal "${profile.name || currentBranch.name}"?`)) {
-        btnPublish.disabled = true;
-        btnPublish.textContent = 'Enviando a Google Sheets...';
-        showToast('Conectando con Google Apps Script REST API...', 'success');
-
-        try {
-          const payload = {
-            username: adminToken.user,
-            password: adminToken.pass,
-            profile: profile,
-            categories: categories,
-            items: items
-          };
-
-          const response = await fetch(targetUrl, {
-            method: 'POST',
-            mode: 'cors',
-            headers: {
-              'Content-Type': 'text/plain;charset=utf-8'
-            },
-            body: JSON.stringify(payload)
+        categoriesListContainer
+          .querySelectorAll(".btn-edit-cat")
+          .forEach((btn) => {
+            btn.addEventListener("click", () =>
+              openCategoryModal(btn.getAttribute("data-id")),
+            );
+          });
+        categoriesListContainer
+          .querySelectorAll(".btn-delete-cat")
+          .forEach((btn) => {
+            btn.addEventListener("click", () =>
+              deleteCategory(btn.getAttribute("data-id")),
+            );
           });
 
-          const result = await response.json();
+        const itemCategorySelect = document.getElementById("item-category");
+        itemCategorySelect.innerHTML = categories
+          .map((c) => `<option value="${c.id}">${c.name}</option>`)
+          .join("");
+      }
 
-          btnPublish.disabled = false;
-          btnPublish.innerHTML = `
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-            Guardar Cambios Al Instante
-          `;
+      // Item Modals
+      const btnAddItem = document.getElementById("btn-add-item");
+      const modalItemClose = document.getElementById("modal-item-close");
+      const btnCancelItem = document.getElementById("btn-cancel-item");
 
-          if (result.success) {
-            showToast(`¡Carta y perfil de ${profile.name || currentBranch.name} actualizados al instante!`, 'success');
-          } else {
-            showToast(`Error de servidor: ${result.message}`, 'error');
-          }
-        } catch (error) {
-          console.error('Error al guardar en Apps Script:', error);
-          btnPublish.disabled = false;
-          btnPublish.innerHTML = `
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-            Guardar Cambios Al Instante
-          `;
-          showToast('Error de red al enviar cambios. Revisa la URL de Apps Script.', 'error');
+      function openItemModal(id = null) {
+        if (categories.length === 0) {
+          showToast("Crea al menos una categoría primero.", "error");
+          return;
+        }
+        modalItem.style.display = "flex";
+        if (id) {
+          const item = items.find((i) => i.id === id);
+          if (!item) return;
+          isEditingItem = true;
+          document.getElementById("modal-item-title").textContent =
+            "Editar Plato";
+          document.getElementById("item-form-id").value = item.id;
+          document.getElementById("item-name").value = item.name;
+          document.getElementById("item-price").value = item.price;
+          document.getElementById("item-category").value = item.categoryId;
+          document.getElementById("item-description").value = item.description;
+          document.getElementById("item-image").value = item.imageUrl || "";
+          document.getElementById("item-recommended").checked =
+            item.isRecommended;
+          document.getElementById("item-available").checked = item.isAvailable;
+        } else {
+          isEditingItem = false;
+          document.getElementById("modal-item-title").textContent =
+            "Agregar Plato";
+          formItem.reset();
+          document.getElementById("item-form-id").value = "";
+          document.getElementById("item-available").checked = true;
         }
       }
-    });
-  </script>
-</body>
-</html>
+      function closeItemModal() {
+        modalItem.style.display = "none";
+        formItem.reset();
+      }
+      btnAddItem.addEventListener("click", () => openItemModal());
+      modalItemClose.addEventListener("click", closeItemModal);
+      btnCancelItem.addEventListener("click", closeItemModal);
 
+      formItem.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const id =
+          document.getElementById("item-form-id").value || "item-" + Date.now();
+        const name = document.getElementById("item-name").value.trim();
+        const price =
+          parseFloat(document.getElementById("item-price").value) || 0;
+        const categoryId = document.getElementById("item-category").value;
+        const description = document
+          .getElementById("item-description")
+          .value.trim();
+        const imageUrl = document.getElementById("item-image").value.trim();
+        const isRecommended =
+          document.getElementById("item-recommended").checked;
+        const isAvailable = document.getElementById("item-available").checked;
+
+        const itemData = {
+          id,
+          name,
+          price,
+          categoryId,
+          description,
+          imageUrl,
+          isRecommended,
+          isAvailable,
+        };
+
+        if (isEditingItem) {
+          items = items.map((i) => (i.id === id ? itemData : i));
+          showToast(
+            "Plato modificado (clic en Guardar Cambios para aplicar)",
+            "success",
+          );
+        } else {
+          items.push(itemData);
+          showToast(
+            "Plato añadido (clic en Guardar Cambios para aplicar)",
+            "success",
+          );
+        }
+        closeItemModal();
+        renderItems();
+      });
+
+      function deleteItem(id) {
+        if (confirm("¿Eliminar este plato?")) {
+          items = items.filter((i) => i.id !== id);
+          renderItems();
+          showToast(
+            "Plato eliminado (clic en Guardar Cambios para aplicar)",
+            "success",
+          );
+        }
+      }
+
+      // Category Modals
+      const btnAddCategory = document.getElementById("btn-add-category");
+      const modalCategoryClose = document.getElementById(
+        "modal-category-close",
+      );
+      const btnCancelCategory = document.getElementById("btn-cancel-category");
+
+      function openCategoryModal(id = null) {
+        modalCategory.style.display = "flex";
+        if (id) {
+          const cat = categories.find((c) => c.id === id);
+          if (!cat) return;
+          isEditingCategory = true;
+          document.getElementById("modal-category-title").textContent =
+            "Editar Categoría";
+          document.getElementById("category-form-mode").value = "edit";
+          document.getElementById("category-id").value = cat.id;
+          document.getElementById("category-id").readOnly = true;
+          document.getElementById("category-name").value = cat.name;
+          document.getElementById("category-icon").value = cat.icon;
+          document.getElementById("category-order").value = cat.order;
+        } else {
+          isEditingCategory = false;
+          document.getElementById("modal-category-title").textContent =
+            "Agregar Categoría";
+          document.getElementById("category-form-mode").value = "add";
+          formCategory.reset();
+          document.getElementById("category-id").readOnly = false;
+        }
+      }
+      function closeCategoryModal() {
+        modalCategory.style.display = "none";
+        formCategory.reset();
+      }
+      btnAddCategory.addEventListener("click", () => openCategoryModal());
+      modalCategoryClose.addEventListener("click", closeCategoryModal);
+      btnCancelCategory.addEventListener("click", closeCategoryModal);
+
+      formCategory.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const id = document
+          .getElementById("category-id")
+          .value.trim()
+          .toLowerCase();
+        const name = document.getElementById("category-name").value.trim();
+        const icon = document.getElementById("category-icon").value.trim();
+        const order =
+          parseInt(document.getElementById("category-order").value) || 99;
+
+        const catData = { id, name, icon, order };
+        const mode = document.getElementById("category-form-mode").value;
+
+        if (mode === "edit") {
+          categories = categories
+            .map((c) => (c.id === id ? catData : c))
+            .sort((a, b) => a.order - b.order);
+          showToast(
+            "Categoría modificada (clic en Guardar Cambios para aplicar)",
+            "success",
+          );
+        } else {
+          if (categories.some((c) => c.id === id)) {
+            showToast("El ID de categoría ya existe.", "error");
+            return;
+          }
+          categories.push(catData);
+          categories.sort((a, b) => a.order - b.order);
+          showToast(
+            "Categoría añadida (clic en Guardar Cambios para aplicar)",
+            "success",
+          );
+        }
+        closeCategoryModal();
+        renderCategories();
+      });
+
+      function deleteCategory(id) {
+        if (items.some((item) => item.categoryId === id)) {
+          showToast(
+            "No puedes eliminar la categoría porque contiene platos.",
+            "error",
+          );
+          return;
+        }
+        if (confirm("¿Eliminar esta categoría?")) {
+          categories = categories.filter((c) => c.id !== id);
+          renderCategories();
+          showToast(
+            "Categoría eliminada (clic en Guardar Cambios para aplicar)",
+            "success",
+          );
+        }
+      }
+
+      // Save & Publish instantly via Apps Script REST API
+      const btnPublish = document.getElementById("btn-publish");
+      btnPublish.addEventListener("click", async () => {
+        const targetUrl = currentBranch.appsScriptUrl;
+
+        if (!targetUrl) {
+          showToast(
+            "Error: este local no tiene URL de Apps Script configurada en el .env.",
+            "error",
+          );
+          return;
+        }
+
+        profile = collectProfileFromUI();
+
+        if (
+          confirm(
+            `¿Guardar los cambios en el libro de la sucursal "${profile.name || currentBranch.name}"?`,
+          )
+        ) {
+          btnPublish.disabled = true;
+          btnPublish.textContent = "Enviando a Google Sheets...";
+          showToast("Conectando con Google Apps Script REST API...", "success");
+
+          try {
+            const payload = {
+              action: 'save',
+              username: adminToken.user,
+              password: adminToken.pass,
+              profile: profile,
+              categories: categories,
+              items: items,
+            };
+
+            const response = await fetch(targetUrl, {
+              method: "POST",
+              mode: "cors",
+              headers: {
+                "Content-Type": "text/plain;charset=utf-8",
+              },
+              body: JSON.stringify(payload),
+            });
+
+            const result = await response.json();
+
+            btnPublish.disabled = false;
+            btnPublish.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+            Guardar Cambios Al Instante
+          `;
+
+            if (result.success) {
+              showToast(
+                `¡Carta y perfil de ${profile.name || currentBranch.name} actualizados al instante!`,
+                "success",
+              );
+            } else {
+              showToast(`Error de servidor: ${result.message}`, "error");
+            }
+          } catch (error) {
+            console.error("Error al guardar en Apps Script:", error);
+            btnPublish.disabled = false;
+            btnPublish.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+            Guardar Cambios Al Instante
+          `;
+            showToast(
+              "Error de red al enviar cambios. Revisa la URL de Apps Script.",
+              "error",
+            );
+          }
+        }
+      });
+    </script>
+  </body>
+</html>
