@@ -30,7 +30,7 @@ function resolveBranchEnvValues(localId) {
         spreadsheetId: '',
         appsScriptUrl: ''
       };
-  }
+  } 
 }
 
 export const LOCATIONS_CONFIG = {
