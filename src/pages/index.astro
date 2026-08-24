@@ -91,7 +91,7 @@ const notFoundPath = `${baseUrl}404`;
     (async function loadBranchFromUrl() {
       const redirectTo404 = () => window.location.replace(notFoundPath);
       const localId = (new URLSearchParams(window.location.search).get('local') || '').trim().toLowerCase();
-
+      
       console.log('[Branch] local resolution', {
         localId,
         hasConfig: !!locationsForClient[localId],
@@ -134,18 +134,14 @@ const notFoundPath = `${baseUrl}404`;
 
     async function fetchBranchData(appsScriptUrl, redirectTo404) {
       const response = await fetch(appsScriptUrl);
+      console.log('[Branch] api response status:', response);
       if (!response.ok) {
         redirectTo404();
         return null;
       }
 
       const rawText = await response.text();
-      console.log('[Branch] raw api response', {
-        status: response.status,
-        contentType: response.headers.get('content-type'),
-        length: rawText.length,
-        preview: rawText.slice(0, 600)
-      });
+    
 
       let data;
       try {

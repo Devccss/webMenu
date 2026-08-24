@@ -25,7 +25,11 @@ export async function getBranchMenuData(branchConfig = {}) {
   // 1. Intentar consultar directamente la REST API del Apps Script de la sucursal
   if (appsScriptUrl) {
     try {
-      const response = await fetch(appsScriptUrl);
+      const response = await fetch(appsScriptUrl,{
+        method: 'GET',
+        redirect: 'follow',
+      });
+      console.log('Apps Script REST API response status:', response.status);
       if (response.ok) {
         const data = await response.json();
         if (data && data.success && Array.isArray(data.categories) && Array.isArray(data.items)) {
@@ -54,6 +58,7 @@ export async function getBranchMenuData(branchConfig = {}) {
         fetchSheetCsv(spreadsheetId, 'Categorias'),
         fetchSheetCsv(spreadsheetId, 'Platos')
       ]);
+      console.log('Datos obtenidos desde CSV público de Google Sheets:', { profileRows, categories, items });
 
       const csvProfile = {};
       if (Array.isArray(profileRows)) {
@@ -111,6 +116,7 @@ export async function getBranchMenuData(branchConfig = {}) {
  * Auxiliar para descargar CSV desde Google Sheets
  */
 async function fetchSheetCsv(spreadsheetId, sheetName) {
+  console.log(`Descargando CSV de Google Sheets: ${spreadsheetId}, ${sheetName}`);
   const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}&t=${Date.now()}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);

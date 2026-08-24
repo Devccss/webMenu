@@ -8,6 +8,7 @@
 export const DEFAULT_LOCAL_ID = '';
 
 function resolveBranchEnvValues(localId) {
+  
   switch (String(localId || '').trim().toLowerCase()) {
     case 'prueba':
       return {
