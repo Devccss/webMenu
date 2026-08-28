@@ -33,6 +33,7 @@ function resolveBranchEnvValues(localId) {
   } 
 }
 
+
 export const LOCATIONS_CONFIG = {
   'prueba': {
     id: 'prueba',
